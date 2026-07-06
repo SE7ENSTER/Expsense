@@ -17,6 +17,10 @@ npm install
 npm run dev
 ```
 
+## Deploy
+
+This repository includes a GitHub Pages workflow in `.github/workflows/deploy.yml`.
+
 ## Next tasks for Codex
 
 1. Add Excel export matching the reimbursement format.
