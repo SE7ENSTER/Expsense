@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ExpenseFlow Firebase v0.2</title>
+  <title>ExpenseFlow Firebase v0.3</title>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -39,9 +39,9 @@
     <main class="wrap">
       <section class="hero">
         <div class="hero-card">
-          <span class="eyebrow">Firebase v0.2</span>
+          <span class="eyebrow">Role Access v0.3</span>
           <h1>Travel expense reporting, simplified.</h1>
-          <p>Create reports, save drafts to Firestore, track status, and export Finance-ready PDFs.</p>
+          <p>Create reports, save drafts to Firestore, track status, and manage role-based access.</p>
         </div>
         <div class="kpi">
           <small>Current report total</small>
@@ -53,18 +53,19 @@
       <div class="tabs">
         <button id="tab-dashboard" class="tab active" onclick="showView('dashboard')">Dashboard</button>
         <button id="tab-editor" class="tab" onclick="showView('editor')">Report Form</button>
+        <button id="tab-admin" class="tab hide" onclick="showView('admin')">Admin</button>
         <button id="tab-firebase" class="tab" onclick="showView('firebase')">Firebase Status</button>
       </div>
 
       <section id="dashboard">
         <div class="quick">
-          <div class="card"><div class="muted">Reports</div><strong id="kReports">0</strong></div>
+          <div class="card"><div class="muted">Reports visible</div><strong id="kReports">0</strong></div>
           <div class="card"><div class="muted">Draft</div><strong id="kDraft">0</strong></div>
           <div class="card"><div class="muted">Submitted</div><strong id="kSubmitted">0</strong></div>
           <div class="card"><div class="muted">Receipts</div><strong id="kReceipts">0</strong></div>
         </div>
         <div class="toolbar">
-          <div><h2>My Reports</h2><p>Loaded from Firestore for the signed-in user.</p></div>
+          <div><h2 id="reportTitle">My Reports</h2><p id="reportSubtitle">Loaded from Firestore for the signed-in user.</p></div>
           <button onclick="newReport()">+ Create Report</button>
         </div>
         <div id="reportList" class="report-list"></div>
@@ -118,12 +119,32 @@
         </section>
       </section>
 
+      <section id="admin" class="hide">
+        <div class="toolbar">
+          <div><h2>Admin Console</h2><p id="adminScopeText">Role-based user and report management.</p></div>
+          <button class="secondary" onclick="refreshAdmin()">Refresh</button>
+        </div>
+        <div class="admin-grid">
+          <div class="card"><div class="muted">Your role</div><strong id="myRoleText">user</strong></div>
+          <div class="card"><div class="muted">Users</div><strong id="adminUserCount">0</strong></div>
+          <div class="card"><div class="muted">Submitted visible</div><strong id="adminSubmittedCount">0</strong></div>
+        </div>
+        <div id="adminUsersCard" class="card table-card section-gap">
+          <div class="admin-note"><h3>User Management</h3><p class="muted">Admin can change roles. Manager can view submitted reports only.</p></div>
+          <div class="table-wrap"><table class="admin-table"><thead><tr><th>Email</th><th>Role</th><th>Updated</th><th>Action</th></tr></thead><tbody id="adminUsers"></tbody></table></div>
+        </div>
+        <div class="card table-card section-gap">
+          <div class="admin-note"><h3>Visible Submitted Reports</h3><p class="muted">Admin sees all reports. Manager sees submitted reports from all users.</p></div>
+          <div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>Status</th><th>User</th><th>Total</th></tr></thead><tbody id="adminReports"></tbody></table></div>
+        </div>
+      </section>
+
       <section id="firebase" class="hide">
         <div class="toolbar"><div><h2>Firebase Status</h2><p>Connection and next implementation status.</p></div></div>
         <div class="firebase-grid">
           <div class="card"><h3>Authentication</h3><p id="authStatus" class="muted">Waiting for sign-in.</p></div>
-          <div class="card"><h3>Firestore</h3><p class="muted">Collection: expenseReports</p></div>
-          <div class="card"><h3>Receipt Storage</h3><p class="muted">Prototype stores compressed receipt previews in Firestore. Move to Firebase Storage in the next phase.</p></div>
+          <div class="card"><h3>Firestore</h3><p class="muted">Collections: users, expenseReports</p></div>
+          <div class="card"><h3>Access model</h3><p class="muted">Admin: all reports and user roles. Manager: submitted reports only. User: own reports.</p></div>
         </div>
       </section>
     </main>
