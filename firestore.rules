@@ -19,13 +19,38 @@ service cloud.firestore {
       return myRole() == 'manager';
     }
 
+    function isFinance() {
+      return myRole() == 'finance';
+    }
+
+    function isBackOffice() {
+      return isAdmin() || isManager() || isFinance();
+    }
+
     match /users/{userId} {
       allow create: if signedIn()
         && userId == request.auth.uid
         && request.resource.data.role == 'user';
       allow read: if signedIn()
-        && (userId == request.auth.uid || isAdmin());
+        && (userId == request.auth.uid || isBackOffice());
       allow update, delete: if signedIn() && isAdmin();
+    }
+
+    match /budgets/{budgetId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && isAdmin();
+    }
+
+    match /approvalLogs/{logId} {
+      allow read: if signedIn() && isBackOffice();
+      allow create: if signedIn() && isBackOffice();
+      allow update, delete: if false;
+    }
+
+    match /paymentLogs/{logId} {
+      allow read: if signedIn() && (isAdmin() || isFinance());
+      allow create: if signedIn() && (isAdmin() || isFinance());
+      allow update, delete: if false;
     }
 
     match /expenseReports/{reportId} {
@@ -35,13 +60,17 @@ service cloud.firestore {
         && (
           resource.data.userId == request.auth.uid
           || isAdmin()
-          || (isManager() && resource.data.status == 'Submitted')
+          || (isManager() && resource.data.status in ['Submitted', 'Manager Approved', 'Rejected', 'Revision Requested'])
+          || (isFinance() && resource.data.status in ['Manager Approved', 'Finance Processing', 'Reimbursed', 'Closed'])
         );
-      allow update, delete: if signedIn()
+      allow update: if signedIn()
         && (
-          resource.data.userId == request.auth.uid
-          || isAdmin()
+          isAdmin()
+          || resource.data.userId == request.auth.uid
+          || (isManager() && resource.data.status == 'Submitted')
+          || (isFinance() && resource.data.status in ['Manager Approved', 'Finance Processing'])
         );
+      allow delete: if signedIn() && isAdmin();
     }
   }
 }
