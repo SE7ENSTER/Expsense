@@ -3,21 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ExpenseFlow Unified Portal v0.15</title>
+  <title>ExpenseFlow v0.16</title>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=15" />
+  <link rel="stylesheet" href="./styles.css?v=16" />
 </head>
 <body>
   <section id="authView" class="login">
     <div class="login-card">
       <div class="logo">Expense<span>Flow</span></div>
       <h1>Sign in</h1>
-      <p>Firebase version. Use an Email / Password account created in Firebase Authentication.</p>
-      <label>Email<input id="email" type="email" placeholder="name@company.com"></label>
-      <label>Password<input id="password" type="password" placeholder="Password"></label>
+      <p>ExpenseFlow v0.16. Sign in with your company email or register a new user account.</p>
+      <label>Company Email<input id="email" type="email" placeholder="name@company.com" autocomplete="email"></label>
+      <label>Password<input id="password" type="password" placeholder="Enter password" autocomplete="current-password"></label>
       <div class="auth-actions">
         <button onclick="signIn()">Sign in</button>
-        <button class="secondary" onclick="signUp()">Create demo user</button>
+        <button class="secondary" onclick="signUp()">Register New User</button>
       </div>
       <p id="authMsg" class="small muted"></p>
     </div>
@@ -36,9 +36,9 @@
     <main class="wrap">
       <section class="hero">
         <div class="hero-card">
-          <span class="eyebrow">Unified Portal v0.15</span>
-          <h1>ExpenseFlow in one simple portal.</h1>
-          <p>User work stays in User Portal. Manager, Finance, and Admin work are combined in one Management Portal.</p>
+          <span class="eyebrow">ExpenseFlow v0.16</span>
+          <h1>Ready for update</h1>
+          <p>Blank banner placeholder for future announcement or company message.</p>
         </div>
         <div class="kpi">
           <small>Current report total</small>
@@ -48,8 +48,8 @@
       </section>
 
       <div class="tabs">
-        <button id="tab-dashboard" class="tab active" onclick="showView('dashboard')">User Portal</button>
-        <button id="tab-editor" class="tab" onclick="showView('editor')">Expense Form</button>
+        <button id="tab-dashboard" class="tab active" onclick="showView('dashboard')">Dashboard</button>
+        <button id="tab-editor" class="tab" onclick="showView('editor')">Expense Report</button>
         <button id="tab-admin" class="tab hide" onclick="showView('admin')">Management Portal</button>
         <button id="tab-firebase" class="tab" onclick="showView('firebase')">System Status</button>
       </div>
@@ -71,17 +71,17 @@
 
       <section id="editor" class="hide">
         <section class="card meta">
-          <label>Employee<input id="employee" placeholder="Employee name"></label>
-          <label>Company<input id="company" placeholder="Company / entity"></label>
-          <label>Business Purpose<input id="purpose" placeholder="Business trip / project purpose"></label>
-          <label>Report Currency<select id="reportCurrency" onchange="calc()"></select></label>
-          <label>From Date<input id="fromDate" type="date" onchange="calc()"></label>
-          <label>To Date<input id="toDate" type="date"></label>
-          <label>Destination<input id="destination" placeholder="City / country"></label>
-          <label>Cost Center<input id="costCenter" placeholder="Optional"></label>
+          <label>Employee Name<input id="employee" placeholder="Full name as shown in company record"></label>
+          <label>Company / Department<input id="company" placeholder="Company, department, or entity"></label>
+          <label>Business Purpose / Trip Purpose<input id="purpose" placeholder="Example: Site visit, vendor meeting, pre-opening support"></label>
+          <label>Claim Currency<select id="reportCurrency" onchange="calc()"></select></label>
+          <label>Expense Period From<input id="fromDate" type="date" onchange="calc()"></label>
+          <label>Expense Period To<input id="toDate" type="date"></label>
+          <label>Destination / Location<input id="destination" placeholder="City / country or project location"></label>
+          <label>Cost Center / Project Code<input id="costCenter" placeholder="Optional cost center or project code"></label>
         </section>
         <div class="toolbar">
-          <div><h2>Expense Items</h2><p>Fiscal year is calculated from the From Date. FY runs from 1 Nov to 31 Oct.</p></div>
+          <div><h2>Expense Items</h2><p>Fiscal year is calculated from the Expense Period From date. FY runs from 1 Nov to 31 Oct.</p></div>
           <div class="top-actions">
             <button class="secondary" onclick="saveReport('Draft')">Save Draft</button>
             <button class="secondary" onclick="saveReport('Submitted')">Submit</button>
@@ -110,7 +110,7 @@
           <div class="card"><div class="muted">Users</div><strong id="adminUserCount">0</strong></div>
         </div>
         <div class="card table-card section-gap"><div class="admin-note"><h3>Manager Review</h3><p class="muted">Manager reviews submitted expense reports, checks budget impact, then approves, rejects, or requests revision.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>FY</th><th>Total HKD</th><th>Budget Impact</th><th>Status</th><th>Action</th></tr></thead><tbody id="reviewReports"><tr><td colspan="7">Use Refresh after login to load submitted reports.</td></tr></tbody></table></div></div>
-        <div class="card table-card section-gap"><div class="admin-note"><h3>Finance Processing</h3><p class="muted">Finance processes manager-approved reports and marks reimbursement status. Full payment queue is planned for the next build.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Queue</th><th>Status</th><th>Next Action</th></tr></thead><tbody><tr><td>Ready for reimbursement</td><td>Manager Approved</td><td>Mark Finance Processing</td></tr><tr><td>Payment completed</td><td>Reimbursed</td><td>Add payment reference</td></tr></tbody></table></div></div>
+        <div class="card table-card section-gap"><div class="admin-note"><h3>Reimbursement Processing</h3><p class="muted">Finance processes manager-approved reports and marks reimbursement status.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Queue</th><th>Status</th><th>Next Action</th></tr></thead><tbody><tr><td>Ready for reimbursement</td><td>Manager Approved</td><td>Mark Reimbursement Processing</td></tr><tr><td>Payment completed</td><td>Reimbursed</td><td>Add payment reference</td></tr></tbody></table></div></div>
         <div id="adminUsersCard" class="card table-card section-gap"><div class="admin-note"><h3>Admin Tools: User Management</h3><p class="muted">Admin can change roles and assign Manager / Finance / Admin access.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Email</th><th>Role</th><th>Updated</th><th>Action</th></tr></thead><tbody id="adminUsers"></tbody></table></div></div>
         <div id="budgetAdminCard" class="card table-card section-gap"><div class="admin-note"><h3>Admin Tools: Budget Management</h3><p class="muted">Set annual user budget. Fiscal Year runs 1 Nov to 31 Oct.</p><label style="max-width:180px">Fiscal Year<select id="budgetFySelect" onchange="adminDash()"></select></label></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>User</th><th>Role</th><th>Budget HKD</th><th>Used</th><th>Pending</th><th>Available</th><th>Action</th></tr></thead><tbody id="budgetRows"></tbody></table></div></div>
         <div class="card table-card section-gap"><div class="admin-note"><h3>All / Visible Reports</h3><p class="muted">Admin sees all reports. Manager sees submitted and reviewed reports.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>Status</th><th>User</th><th>Total HKD</th></tr></thead><tbody id="adminReports"></tbody></table></div></div>
@@ -121,14 +121,14 @@
         <div class="firebase-grid">
           <div class="card"><h3>Authentication</h3><p id="authStatus" class="muted">Waiting for sign-in.</p></div>
           <div class="card"><h3>Firestore</h3><p class="muted">Collections: users, expenseReports, budgets, approvalLogs</p></div>
-          <div class="card"><h3>Workflow</h3><p class="muted">Draft → Submitted → Manager Approved → Finance Processing → Reimbursed</p></div>
+          <div class="card"><h3>Workflow</h3><p class="muted">Draft → Submitted → Manager Approved → Reimbursement Processing → Reimbursed</p></div>
         </div>
       </section>
     </main>
   </section>
-  <script type="module" src="./firebase-app.js?v=15"></script>
-  <script type="module" src="./budget-approval.js?v=15"></script>
-  <script type="module" src="./management-enhancements.js?v=15"></script>
-  <script type="module" src="./management-v2.js?v=15"></script>
+  <script type="module" src="./firebase-app.js?v=16"></script>
+  <script type="module" src="./budget-approval.js?v=16"></script>
+  <script type="module" src="./management-enhancements.js?v=16"></script>
+  <script type="module" src="./management-v2.js?v=16"></script>
 </body>
 </html>
