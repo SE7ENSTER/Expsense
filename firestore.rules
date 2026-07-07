@@ -1,9 +1,47 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : 'user';
+    }
+
+    function isAdmin() {
+      return myRole() == 'admin';
+    }
+
+    function isManager() {
+      return myRole() == 'manager';
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+        && userId == request.auth.uid
+        && request.resource.data.role == 'user';
+      allow read: if signedIn()
+        && (userId == request.auth.uid || isAdmin());
+      allow update, delete: if signedIn() && isAdmin();
+    }
+
     match /expenseReports/{reportId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if signedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || isAdmin()
+          || (isManager() && resource.data.status == 'Submitted')
+        );
+      allow update, delete: if signedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || isAdmin()
+        );
     }
   }
 }
