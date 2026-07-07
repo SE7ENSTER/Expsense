@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ExpenseFlow Firebase v0.4</title>
+  <title>ExpenseFlow Unified Portal v0.6</title>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -27,7 +27,7 @@
     <header class="top">
       <div><div class="logo">Expense<span>Flow</span></div><div id="userLine" class="small muted"></div></div>
       <div class="top-actions">
-        <button class="secondary" onclick="showView('dashboard')">Dashboard</button>
+        <button class="secondary" onclick="showView('dashboard')">User Portal</button>
         <button class="secondary" onclick="newReport()">New Report</button>
         <button class="ghost" onclick="logout()">Logout</button>
       </div>
@@ -36,9 +36,9 @@
     <main class="wrap">
       <section class="hero">
         <div class="hero-card">
-          <span class="eyebrow">Budget + Approval v0.4</span>
-          <h1>Travel expense reporting, with budget control.</h1>
-          <p>Track fiscal year budget, submit claims, and let managers approve before reimbursement.</p>
+          <span class="eyebrow">Unified Portal v0.6</span>
+          <h1>ExpenseFlow in one simple portal.</h1>
+          <p>User work stays in User Portal. Manager, Finance, and Admin work are combined in one Management Portal.</p>
         </div>
         <div class="kpi">
           <small>Current report total</small>
@@ -48,11 +48,10 @@
       </section>
 
       <div class="tabs">
-        <button id="tab-dashboard" class="tab active" onclick="showView('dashboard')">Dashboard</button>
-        <button id="tab-editor" class="tab" onclick="showView('editor')">Report Form</button>
-        <button id="tab-review" class="tab hide" onclick="showView('review')">Manager Review</button>
-        <button id="tab-admin" class="tab hide" onclick="showView('admin')">Admin</button>
-        <button id="tab-firebase" class="tab" onclick="showView('firebase')">Firebase Status</button>
+        <button id="tab-dashboard" class="tab active" onclick="showView('dashboard')">User Portal</button>
+        <button id="tab-editor" class="tab" onclick="showView('editor')">Expense Form</button>
+        <button id="tab-admin" class="tab hide" onclick="showView('admin')">Management Portal</button>
+        <button id="tab-firebase" class="tab" onclick="showView('firebase')">System Status</button>
       </div>
 
       <section id="dashboard">
@@ -103,29 +102,26 @@
         </section>
       </section>
 
-      <section id="review" class="hide">
-        <div class="toolbar"><div><h2>Manager Review</h2><p>Review submitted reports, check budget impact, then approve, reject, or request revision.</p></div><button class="secondary" onclick="refreshAdmin()">Refresh</button></div>
-        <div class="card table-card"><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>FY</th><th>Total HKD</th><th>Budget Impact</th><th>Status</th><th>Action</th></tr></thead><tbody id="reviewReports"></tbody></table></div></div>
-      </section>
-
       <section id="admin" class="hide">
-        <div class="toolbar"><div><h2>Admin Console</h2><p id="adminScopeText">Role, budget, and report management.</p></div><button class="secondary" onclick="refreshAdmin()">Refresh</button></div>
+        <div class="toolbar"><div><h2>Management Portal</h2><p id="adminScopeText">Combined Manager, Finance, and Admin workspace.</p></div><button class="secondary" onclick="refreshAdmin()">Refresh</button></div>
         <div class="admin-grid">
           <div class="card"><div class="muted">Your role</div><strong id="myRoleText">user</strong></div>
+          <div class="card"><div class="muted">Manager Queue</div><strong id="adminSubmittedCount">0</strong></div>
           <div class="card"><div class="muted">Users</div><strong id="adminUserCount">0</strong></div>
-          <div class="card"><div class="muted">Submitted visible</div><strong id="adminSubmittedCount">0</strong></div>
         </div>
-        <div id="adminUsersCard" class="card table-card section-gap"><div class="admin-note"><h3>User Management</h3><p class="muted">Admin can change roles and assign Manager / Finance / Admin access.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Email</th><th>Role</th><th>Updated</th><th>Action</th></tr></thead><tbody id="adminUsers"></tbody></table></div></div>
-        <div id="budgetAdminCard" class="card table-card section-gap"><div class="admin-note"><h3>Budget Management</h3><p class="muted">Set annual user budget. Fiscal Year runs 1 Nov to 31 Oct.</p><label style="max-width:180px">Fiscal Year<select id="budgetFySelect" onchange="adminDash()"></select></label></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>User</th><th>Role</th><th>Budget HKD</th><th>Used</th><th>Pending</th><th>Available</th><th>Action</th></tr></thead><tbody id="budgetRows"></tbody></table></div></div>
-        <div class="card table-card section-gap"><div class="admin-note"><h3>All / Visible Reports</h3><p class="muted">Admin sees all reports. Manager sees reports that require review or have been reviewed.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>Status</th><th>User</th><th>Total HKD</th></tr></thead><tbody id="adminReports"></tbody></table></div></div>
+        <div class="card table-card section-gap"><div class="admin-note"><h3>Manager Review</h3><p class="muted">Manager reviews submitted expense reports, checks budget impact, then approves, rejects, or requests revision.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>FY</th><th>Total HKD</th><th>Budget Impact</th><th>Status</th><th>Action</th></tr></thead><tbody id="reviewReports"><tr><td colspan="7">Use Refresh after login to load submitted reports.</td></tr></tbody></table></div></div>
+        <div class="card table-card section-gap"><div class="admin-note"><h3>Finance Processing</h3><p class="muted">Finance processes manager-approved reports and marks reimbursement status. Full payment queue is planned for the next build.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Queue</th><th>Status</th><th>Next Action</th></tr></thead><tbody><tr><td>Ready for reimbursement</td><td>Manager Approved</td><td>Mark Finance Processing</td></tr><tr><td>Payment completed</td><td>Reimbursed</td><td>Add payment reference</td></tr></tbody></table></div></div>
+        <div id="adminUsersCard" class="card table-card section-gap"><div class="admin-note"><h3>Admin Tools: User Management</h3><p class="muted">Admin can change roles and assign Manager / Finance / Admin access.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Email</th><th>Role</th><th>Updated</th><th>Action</th></tr></thead><tbody id="adminUsers"></tbody></table></div></div>
+        <div id="budgetAdminCard" class="card table-card section-gap"><div class="admin-note"><h3>Admin Tools: Budget Management</h3><p class="muted">Set annual user budget. Fiscal Year runs 1 Nov to 31 Oct.</p><label style="max-width:180px">Fiscal Year<select id="budgetFySelect" onchange="adminDash()"></select></label></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>User</th><th>Role</th><th>Budget HKD</th><th>Used</th><th>Pending</th><th>Available</th><th>Action</th></tr></thead><tbody id="budgetRows"></tbody></table></div></div>
+        <div class="card table-card section-gap"><div class="admin-note"><h3>All / Visible Reports</h3><p class="muted">Admin sees all reports. Manager sees submitted and reviewed reports.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>Status</th><th>User</th><th>Total HKD</th></tr></thead><tbody id="adminReports"></tbody></table></div></div>
       </section>
 
       <section id="firebase" class="hide">
-        <div class="toolbar"><div><h2>Firebase Status</h2><p>Connection and next implementation status.</p></div></div>
+        <div class="toolbar"><div><h2>System Status</h2><p>Connection and next implementation status.</p></div></div>
         <div class="firebase-grid">
           <div class="card"><h3>Authentication</h3><p id="authStatus" class="muted">Waiting for sign-in.</p></div>
           <div class="card"><h3>Firestore</h3><p class="muted">Collections: users, expenseReports, budgets, approvalLogs</p></div>
-          <div class="card"><h3>Workflow</h3><p class="muted">Draft → Submitted → Manager Approved / Rejected / Revision Requested → Finance Processing → Reimbursed</p></div>
+          <div class="card"><h3>Workflow</h3><p class="muted">Draft → Submitted → Manager Approved → Finance Processing → Reimbursed</p></div>
         </div>
       </section>
     </main>
