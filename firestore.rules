@@ -1,43 +1,29 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function signedIn() {
       return request.auth != null;
     }
 
-    function hasProfile() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
     function myRole() {
-      return hasProfile()
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
         : 'user';
     }
 
-    function isDisabled() {
-      return hasProfile()
-        && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == false
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'disabled'
-        );
-    }
-
-    function isActiveUser() {
-      return signedIn() && !isDisabled();
-    }
-
     function isAdmin() {
-      return isActiveUser() && myRole() == 'admin';
+      return myRole() == 'admin';
     }
 
     function isManager() {
-      return isActiveUser() && myRole() == 'manager';
+      return myRole() == 'manager';
     }
 
     function isFinance() {
-      return isActiveUser() && myRole() == 'finance';
+      return myRole() == 'finance';
     }
 
     function isBackOffice() {
@@ -46,10 +32,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow create: if signedIn()
-        && (
-          userId == request.auth.uid
-          || isAdmin()
-        );
+        && userId == request.auth.uid
+        && request.resource.data.role == 'user';
 
       allow read: if signedIn()
         && (
@@ -57,31 +41,44 @@ service cloud.firestore {
           || isBackOffice()
         );
 
-      allow update, delete: if isAdmin();
+      allow update, delete: if signedIn() && isAdmin();
     }
 
     match /budgets/{budgetId} {
-      allow read: if isActiveUser();
-      allow create, update, delete: if isAdmin() || isFinance();
+      allow read: if signedIn();
+
+      allow create, update, delete: if signedIn() && isAdmin();
     }
 
     match /approvalLogs/{logId} {
-      allow read: if isBackOffice();
-      allow create: if isBackOffice();
+      allow read: if signedIn() && isBackOffice();
+
+      allow create: if signedIn() && isBackOffice();
+
       allow update, delete: if false;
     }
 
     match /paymentLogs/{logId} {
-      allow read: if isAdmin() || isFinance();
-      allow create: if isAdmin() || isFinance();
+      allow read: if signedIn()
+        && (
+          isAdmin()
+          || isFinance()
+        );
+
+      allow create: if signedIn()
+        && (
+          isAdmin()
+          || isFinance()
+        );
+
       allow update, delete: if false;
     }
 
     match /expenseReports/{reportId} {
-      allow create: if isActiveUser()
+      allow create: if signedIn()
         && request.resource.data.userId == request.auth.uid;
 
-      allow read: if isActiveUser()
+      allow read: if signedIn()
         && (
           resource.data.userId == request.auth.uid
           || isAdmin()
@@ -99,14 +96,13 @@ service cloud.firestore {
             && resource.data.status in [
               'Manager Approved',
               'Finance Processing',
-              'Reimbursement Processing',
               'Reimbursed',
               'Closed'
             ]
           )
         );
 
-      allow update: if isActiveUser()
+      allow update: if signedIn()
         && (
           isAdmin()
           || resource.data.userId == request.auth.uid
@@ -118,13 +114,12 @@ service cloud.firestore {
             isFinance()
             && resource.data.status in [
               'Manager Approved',
-              'Finance Processing',
-              'Reimbursement Processing'
+              'Finance Processing'
             ]
           )
         );
 
-      allow delete: if isAdmin();
+      allow delete: if signedIn() && isAdmin();
     }
   }
 }
