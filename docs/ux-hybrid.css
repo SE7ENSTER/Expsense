@@ -1,0 +1,23 @@
+:root{--sidebar:#ffffff;--sidebar-border:#dbe4f0;--page-bg:#f4f6fa;--accent:#2563eb;--text:#0f172a;--soft-blue:#eef6ff}
+body{background:#f4f6fa!important}
+#appView{min-height:100vh;background:#f4f6fa}
+.app-shell{display:grid;grid-template-columns:258px minmax(0,1fr);align-items:start;max-width:1600px;margin:0 auto}
+.app-sidebar{position:sticky;top:76px;height:calc(100vh - 76px);background:var(--sidebar);border-right:1px solid var(--sidebar-border);padding:22px;display:flex;flex-direction:column;gap:20px}
+.sidebar-title{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;font-weight:900;margin:0 0 8px}
+.side-nav{display:grid;gap:8px}
+.side-nav button{width:100%;justify-content:flex-start;background:#fff;color:#475569;box-shadow:none;border:1px solid transparent;border-radius:14px;padding:12px 14px}
+.side-nav button:hover{background:#f8fbff;border-color:#dbeafe;transform:none}
+.side-nav button.active{background:#eef6ff;color:#2563eb;border-color:#cfe0ff}
+.side-footer{margin-top:auto;background:#f8fbff;border:1px solid #e6eef7;border-radius:18px;padding:14px;color:#64748b;font-size:13px;line-height:1.45}
+.main-workspace{min-width:0}
+.top{z-index:30}.top-actions button.secondary{display:none!important}.top-actions:before{content:'User Profile';display:inline-flex;align-items:center;border:1px solid #d9e8ff;background:#fff;color:#2563eb;border-radius:18px;padding:12px 15px;font-weight:900}
+.hero-card{min-height:128px!important;background:linear-gradient(135deg,#fff,#f8fbff)!important;border:1px dashed #c9d8ea!important;color:#94a3b8!important;display:grid!important;place-items:center!important;box-shadow:0 12px 32px rgba(15,23,42,.06)!important}.hero-card h1{font-size:0!important}.hero-card h1:after{content:'Ready for update';font-size:24px;color:#94a3b8}.hero-card p{display:none!important}.hero-card .eyebrow{font-size:0!important;border-color:#d9e4f2!important;background:#fff!important}.hero-card .eyebrow:after{content:'Banner Area';font-size:12px;color:#94a3b8}
+#tab-dashboard,#tab-editor{font-size:0!important}#tab-dashboard:after{content:'Dashboard';font-size:15px}#tab-editor:after{content:'Expense Report';font-size:15px}
+#dashboard .quick .card,.mgmt-summary .card,.admin-grid .card{border-radius:20px}
+#admin .table-card{border-radius:24px;overflow:hidden}
+#editor .meta{background:#fff}
+#editor .layout{align-items:start}.side{position:sticky;top:100px}
+.register-modal{position:fixed;inset:0;background:rgba(15,23,42,.68);z-index:2000;display:grid;place-items:center;padding:22px}.register-card{width:min(760px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:28px;border:1px solid #dbe4f0;box-shadow:0 30px 90px rgba(0,0,0,.32);padding:28px}.register-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:1px solid #e2e8f0;padding-bottom:16px;margin-bottom:18px}.register-head h2{margin:0;font-size:28px}.register-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.register-grid label{background:#fff;border:1px solid #edf2f7;border-radius:16px;padding:12px}.register-grid input{margin-top:8px}.register-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.register-grid .full{grid-column:1/-1}
+.login-card .secondary{white-space:normal;text-align:center;justify-content:center}
+@media(max-width:1100px){.app-shell{grid-template-columns:1fr}.app-sidebar{display:none}.wrap{max-width:1280px}.side{position:static}}
+@media(max-width:760px){.register-grid{grid-template-columns:1fr}.register-grid .full{grid-column:auto}.register-actions{flex-direction:column}.register-actions button{justify-content:center}}
