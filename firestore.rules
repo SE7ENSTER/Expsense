@@ -38,7 +38,7 @@ service cloud.firestore {
 
     match /budgets/{budgetId} {
       allow read: if signedIn();
-      allow create, update, delete: if signedIn() && isAdmin();
+      allow create, update, delete: if signedIn() && (isAdmin() || isFinance());
     }
 
     match /approvalLogs/{logId} {
