@@ -5,27 +5,27 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userDoc() {
-      return /databases/$(database)/documents/users/$(request.auth.uid);
-    }
-
     function hasProfile() {
-      return signedIn() && exists(userDoc());
-    }
-
-    function isActiveUser() {
       return signedIn()
-        && (
-          !exists(userDoc())
-          || get(userDoc()).data.active != false
-        )
-        && myRole() != 'disabled';
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function myRole() {
       return hasProfile()
-        ? get(userDoc()).data.role
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
         : 'user';
+    }
+
+    function isDisabled() {
+      return hasProfile()
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == false
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'disabled'
+        );
+    }
+
+    function isActiveUser() {
+      return signedIn() && !isDisabled();
     }
 
     function isAdmin() {
@@ -47,14 +47,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if signedIn()
         && (
-          (
-            userId == request.auth.uid
-            && request.resource.data.role == 'user'
-          )
+          userId == request.auth.uid
           || isAdmin()
         );
 
-      allow read: if isActiveUser()
+      allow read: if signedIn()
         && (
           userId == request.auth.uid
           || isBackOffice()
