@@ -50,6 +50,27 @@ service cloud.firestore {
       allow create, update, delete: if signedIn() && isAdmin();
     }
 
+    match /notifications/{notificationId} {
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+
+      allow read: if signedIn()
+        && (
+          resource.data.recipientUserId == request.auth.uid
+          || resource.data.recipientRole == myRole()
+          || isAdmin()
+        );
+
+      allow update: if signedIn()
+        && (
+          resource.data.recipientUserId == request.auth.uid
+          || resource.data.recipientRole == myRole()
+          || isAdmin()
+        );
+
+      allow delete: if signedIn() && isAdmin();
+    }
+
     match /approvalLogs/{logId} {
       allow read: if signedIn() && isBackOffice();
 
@@ -96,6 +117,7 @@ service cloud.firestore {
             && resource.data.status in [
               'Manager Approved',
               'Finance Processing',
+              'Reimbursement Processing',
               'Reimbursed',
               'Closed'
             ]
@@ -114,7 +136,8 @@ service cloud.firestore {
             isFinance()
             && resource.data.status in [
               'Manager Approved',
-              'Finance Processing'
+              'Finance Processing',
+              'Reimbursement Processing'
             ]
           )
         );
