@@ -1,0 +1,61 @@
+/* ExpenseFlow v0.26 - compact dashboard scoreboard and report list */
+
+/* Scoreboard / Expense Report Summary */
+#phase1ReportSummary{margin-top:8px;margin-bottom:22px}
+#phase1ReportSummary .summary-title-row{align-items:flex-end;margin:8px 0 12px;gap:18px}
+#phase1ReportSummary .summary-title-row h2{font-size:26px;line-height:1.1;margin:0 0 6px}
+#phase1ReportSummary .summary-title-row p{font-size:14px;margin:0;color:#60718f}
+#phase1ReportSummary .summary-title-row label{font-size:12px;font-weight:900;color:#344054;margin:0}
+#phase1ReportSummary .summary-title-row select{height:46px;min-width:170px;border-radius:16px;padding:0 42px 0 16px;font-size:14px;font-weight:900;background:#fff}
+#phase1ReportSummary .summary-export-actions{margin-left:auto}
+#phase1ReportSummary .summary-export-actions button{height:44px;min-width:118px;padding:0 16px!important;border-radius:16px!important;font-size:13px!important;font-weight:950!important}
+#phase1ReportSummary .dash-summary{grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:10px 0 0}
+#phase1ReportSummary .dash-summary .card{min-height:auto;padding:14px 16px;border-radius:18px;box-shadow:0 10px 24px rgba(15,23,42,.05)}
+#phase1ReportSummary .dash-summary .muted{font-size:12px;line-height:1.25;margin:0 0 6px;color:#52647f}
+#phase1ReportSummary .dash-summary strong{display:block;font-size:23px;line-height:1.05;letter-spacing:-.02em}
+#phase1ReportSummary .dash-summary p.muted{margin-top:8px;font-size:11px}
+
+/* Standard dashboard KPI cards above the summary */
+#dashboard>.quick:first-child{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+#dashboard>.quick:first-child .card{padding:14px 16px;border-radius:18px;min-height:auto}
+#dashboard>.quick:first-child .card strong{font-size:23px;line-height:1.05}
+#dashboard>.quick:first-child .muted{font-size:12px;margin-bottom:6px}
+
+/* Report section header */
+#dashboard>.toolbar{margin-top:18px;margin-bottom:12px;align-items:flex-end}
+#dashboard>.toolbar h2,#reportTitle{font-size:28px!important;line-height:1.05;margin-bottom:4px!important}
+#dashboard>.toolbar p,#reportSubtitle{font-size:14px!important;color:#60718f!important;margin:0!important}
+#dashboard>.toolbar button{height:44px;padding:0 18px!important;border-radius:16px!important;font-size:14px!important;font-weight:950!important}
+
+/* Compact all reports list */
+#reportList.report-list{display:flex!important;flex-direction:column!important;gap:10px!important}
+#reportList .report-card{display:grid!important;grid-template-columns:minmax(140px,1.2fr) minmax(220px,2.6fr) minmax(110px,.9fr) minmax(130px,1fr) minmax(170px,1.3fr);align-items:center;gap:14px;padding:16px 18px!important;border-radius:22px!important;min-height:auto!important;box-shadow:0 10px 26px rgba(15,23,42,.045)!important;cursor:pointer;position:relative;overflow:hidden}
+#reportList .report-card:hover{transform:translateY(-1px);box-shadow:0 14px 34px rgba(15,23,42,.08)!important}
+#reportList .report-card .pill{grid-column:1;grid-row:1 / span 3;justify-self:start;min-width:120px;text-align:center;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:950}
+#reportList .report-card h3{grid-column:2;grid-row:1;margin:0!important;font-size:17px!important;line-height:1.22;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#reportList .report-card p.muted:not(.small){grid-column:2 / span 2;grid-row:2;margin:0!important;font-size:13px!important;line-height:1.25;color:#60718f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#reportList .report-card p.small.muted{grid-column:2 / span 2;grid-row:3;margin:0!important;font-size:12px!important;color:#60718f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#reportList .report-card>.row{grid-column:4;grid-row:1 / span 3;display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;margin:0!important;min-width:0}
+#reportList .report-card>.row strong{font-size:16px!important;line-height:1.1;white-space:nowrap}
+#reportList .report-card>.row .muted{font-size:12px!important;margin:0!important;color:#60718f}
+#reportList .report-card .next-step{grid-column:5;grid-row:1 / span 3;margin:0!important;padding:10px 12px!important;border-radius:16px!important;font-size:12px!important;line-height:1.25;max-width:190px;background:#f8fbff!important}
+#reportList .report-card .next-step b{display:block;margin-bottom:2px}
+#reportList .report-card .report-view-tag{position:absolute;right:16px;top:12px;font-size:11px;color:#0b6bff;background:#eef6ff;border-radius:999px;padding:4px 8px}
+
+@media(max-width:1180px){
+  #phase1ReportSummary .dash-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #reportList .report-card{grid-template-columns:120px minmax(220px,1fr) 120px 170px}
+  #reportList .report-card h3{grid-column:2}.report-card p.muted:not(.small){grid-column:2}.report-card p.small.muted{grid-column:2}
+  #reportList .report-card>.row{grid-column:3}
+  #reportList .report-card .next-step{grid-column:4}
+}
+@media(max-width:820px){
+  #phase1ReportSummary .summary-title-row{flex-direction:column;align-items:flex-start}
+  #phase1ReportSummary .summary-export-actions{margin-left:0;width:100%}
+  #phase1ReportSummary .summary-export-actions button{flex:1;min-width:0}
+  #phase1ReportSummary .dash-summary,#dashboard>.quick:first-child{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #reportList .report-card{grid-template-columns:1fr;gap:8px;padding:16px!important}
+  #reportList .report-card .pill,#reportList .report-card h3,#reportList .report-card p.muted:not(.small),#reportList .report-card p.small.muted,#reportList .report-card>.row,#reportList .report-card .next-step{grid-column:1!important;grid-row:auto!important}
+  #reportList .report-card .next-step{max-width:none;width:100%}
+}
+@media(max-width:520px){#phase1ReportSummary .dash-summary,#dashboard>.quick:first-child{grid-template-columns:1fr}}
