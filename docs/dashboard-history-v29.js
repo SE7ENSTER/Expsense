@@ -1,0 +1,33 @@
+import { getApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+import { getAuth,onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+import { getFirestore,collection,doc,getDoc,getDocs,query,where } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+const auth=getAuth(getApp());
+const db=getFirestore(getApp());
+let me=null,profile={role:'user'},historyReports=[];
+const completedStatuses=['Reimbursed','Closed'];
+const $=id=>document.getElementById(id);
+const esc=v=>String(v||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money=n=>'HKD '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+function fiscal(d){const x=d?new Date(d):new Date();return 'FY'+(x.getMonth()>=10?x.getFullYear()+1:x.getFullYear())}
+function reportFy(r){return r.fiscalYear||fiscal(r.meta?.fromDate)}
+function total(r){return +(r.totalHkd||(r.items||[]).reduce((s,i)=>s+(+i.amount||0)*(+i.fx||0),0))}
+function receiptCount(r){return (r.items||[]).filter(i=>i.receiptData||i.receiptFileData||i.receiptName).length}
+function completedDate(r){const ts=r.paymentAt||r.financeActionAt||r.updatedAt||r.createdAt;return ts?.seconds?new Date(ts.seconds*1000).toLocaleDateString():'-'}
+function currentFyList(){const n=+fiscal().replace('FY','');return ['FY'+(n-2),'FY'+(n-1),'FY'+n,'FY'+(n+1)]}
+async function loadProfile(){if(!me)return;try{const snap=await getDoc(doc(db,'users',me.uid));profile=snap.exists()?snap.data():{role:'user'}}catch(e){profile={role:'user'}}}
+async function loadHistory(){if(!me)return;let rq;if(profile.role==='admin')rq=collection(db,'expenseReports');else if(profile.role==='finance')rq=query(collection(db,'expenseReports'),where('status','in',completedStatuses));else rq=query(collection(db,'expenseReports'),where('userId','==',me.uid));try{const snap=await getDocs(rq);historyReports=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>completedStatuses.includes(r.status)).sort((a,b)=>(b.updatedAt?.seconds||0)-(a.updatedAt?.seconds||0));renderHistory()}catch(e){console.warn('History load failed',e.message)}}
+function ensureHistoryPage(){if($('history'))return;const section=document.createElement('section');section.id='history';section.className='hide history-page';section.innerHTML='<div class="toolbar"><div><h2>History / Reimbursed Reports</h2><p>Track completed and reimbursed expense reports separately from active dashboard reports.</p></div><div class="history-actions"><label>Fiscal Year<select id="historyFySelect"></select></label></div></div><div class="history-table-wrap"><div class="history-table-scroll"><table class="history-table"><thead><tr><th>Report No.</th><th>Status</th><th>Purpose / Trip</th><th>User</th><th>Total</th><th>Receipts</th><th>Completed</th><th>Action</th></tr></thead><tbody id="historyRows"><tr><td colspan="8" class="history-empty">No completed reports found.</td></tr></tbody></table></div></div>';
+  $('dashboard')?.after(section);
+  const tabs=document.querySelector('.tabs');
+  if(tabs&&!$('tab-history')){const btn=document.createElement('button');btn.id='tab-history';btn.className='tab';btn.textContent='History';btn.onclick=()=>window.showView('history');tabs.insertBefore(btn,$('tab-admin')||$('tab-firebase')||null)}
+  if($('tab-firebase'))$('tab-firebase').remove();
+  if($('firebase'))$('firebase').remove();
+  const sel=$('historyFySelect');if(sel){sel.innerHTML=currentFyList().map(fy=>`<option ${fy===fiscal()?'selected':''}>${fy}</option>`).join('');sel.onchange=renderHistory}
+}
+function renderHistory(){ensureHistoryPage();const tbody=$('historyRows');if(!tbody)return;const fy=$('historyFySelect')?.value||fiscal();const rows=historyReports.filter(r=>reportFy(r)===fy);if(!rows.length){tbody.innerHTML='<tr><td colspan="8" class="history-empty">No completed / reimbursed reports found for this fiscal year.</td></tr>';return}tbody.innerHTML=rows.map(r=>{const m=r.meta||{};return `<tr><td><strong>${esc(r.reportNo||r.runNumber||r.id)}</strong></td><td><span class="pill reimbursed">${esc(r.status)}</span></td><td class="history-purpose"><strong>${esc(m.purpose||'Untitled report')}</strong><span>${esc(m.destination||'No destination')} · ${esc(m.fromDate||'-')} to ${esc(m.toDate||'-')}</span></td><td>${esc(r.userEmail||'-')}</td><td class="history-total">${money(total(r))}</td><td>${receiptCount(r)}</td><td>${completedDate(r)}</td><td><button class="secondary history-open" onclick="openReport('${r.id}')">Open</button></td></tr>`}).join('')}
+function filterDashboardCompleted(){const cards=[...document.querySelectorAll('#reportList .report-card')];let hidden=0;cards.forEach(card=>{const st=(card.dataset.status||card.querySelector('.pill')?.textContent||'').trim();const done=completedStatuses.includes(st);card.classList.toggle('report-completed-hidden',done);if(done)hidden++});document.querySelectorAll('#reportTableWrap .report-grid tbody tr').forEach(row=>{const st=(row.querySelector('.pill')?.textContent||'').trim();row.classList.toggle('report-completed-hidden',completedStatuses.includes(st))});let note=$('activeOnlyNote');const visible=cards.length-hidden;if(cards.length&&visible===0){if(!note){note=document.createElement('div');note.id='activeOnlyNote';note.className='dashboard-active-note';note.textContent='No active reports. Completed / reimbursed reports are available in the History page.';$('reportList')?.before(note)}}else if(note){note.remove()}}
+function patchShowView(){const oldShow=window.showView;if(oldShow&&!window.__historyShowPatched){window.__historyShowPatched=true;window.showView=view=>{ensureHistoryPage();if(view==='history'){['dashboard','editor','admin','history'].forEach(id=>$(id)?.classList.toggle('hide',id!=='history'));document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id==='tab-history'));loadHistory();return}oldShow(view);$('history')?.classList.add('hide');if(view==='dashboard')setTimeout(()=>{filterDashboardCompleted();loadHistory()},500)}}}
+function cleanDashboard(){document.querySelector('#dashboard>.toolbar button[onclick*="newReport"]')?.remove();if($('tab-firebase'))$('tab-firebase').remove();if($('firebase'))$('firebase').remove();ensureHistoryPage();filterDashboardCompleted()}
+let timer=null;onAuthStateChanged(auth,async user=>{me=user;if(user){await loadProfile();setTimeout(()=>{ensureHistoryPage();patchShowView();cleanDashboard();loadHistory()},1500)}});
+new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(cleanDashboard,250)}).observe(document.body,{childList:true,subtree:true});
+console.log('ExpenseFlow dashboard history v29 active');
