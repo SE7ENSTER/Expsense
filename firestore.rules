@@ -127,7 +127,13 @@ service cloud.firestore {
       allow update: if signedIn()
         && (
           isAdmin()
-          || resource.data.userId == request.auth.uid
+          || (
+            resource.data.userId == request.auth.uid
+            && resource.data.status in [
+              'Draft',
+              'Revision Requested'
+            ]
+          )
           || (
             isManager()
             && resource.data.status == 'Submitted'
