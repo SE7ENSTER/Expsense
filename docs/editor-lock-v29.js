@@ -1,0 +1,12 @@
+import { getApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+import { getFirestore,doc,getDoc } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+const db=getFirestore(getApp());
+const editableStatuses=['Draft','Revision Requested'];
+let openedReportStatus='Draft';
+function ensureBanner(){const editor=document.getElementById('editor');if(!editor)return null;let b=document.getElementById('editorLockBanner');if(!b){b=document.createElement('div');b.id='editorLockBanner';b.className='editor-lock-banner';const meta=editor.querySelector('.meta');editor.insertBefore(b,meta||editor.firstChild)}return b}
+function setLocked(status='Draft'){openedReportStatus=status||'Draft';const locked=!editableStatuses.includes(openedReportStatus);const editor=document.getElementById('editor');const banner=ensureBanner();if(!editor||!banner)return;editor.classList.toggle('editor-readonly',locked);document.body.classList.toggle('editor-readonly',locked);editor.dataset.readonly=locked?'true':'false';banner.innerHTML=locked?`<b>Read-only report:</b> This report is already ${openedReportStatus}. Editing is locked to protect the approval workflow. You can still export or view the report details.`:''}
+async function lockByReportId(id){if(!id){setLocked('Draft');return}try{const snap=await getDoc(doc(db,'expenseReports',id));if(snap.exists())setLocked(snap.data().status||'Draft')}catch(e){console.warn('Read-only status check failed',e.message)}}
+function patchOpenReport(){if(window.__editorLockPatched)return;if(!window.openReport||!window.newReport||!window.saveReport){setTimeout(patchOpenReport,300);return}window.__editorLockPatched=true;const oldOpen=window.openReport;window.openReport=id=>{oldOpen(id);setTimeout(()=>lockByReportId(id),350)};const oldNew=window.newReport;window.newReport=(open=true)=>{oldNew(open);setTimeout(()=>setLocked('Draft'),200)};const oldSave=window.saveReport;window.saveReport=async(status='Draft')=>{const editor=document.getElementById('editor');if(editor?.dataset.readonly==='true'){alert('This report is read-only because it has already entered the approval workflow.');return}return oldSave(status)}}
+function monitorEditor(){const editor=document.getElementById('editor');if(!editor)return;ensureBanner();if(editor.dataset.readonly==='true')setLocked(openedReportStatus)}
+setTimeout(()=>{patchOpenReport();monitorEditor()},1400);document.addEventListener('click',()=>setTimeout(()=>{patchOpenReport();monitorEditor()},250),true);
+console.log('ExpenseFlow editor lock v29 active');
