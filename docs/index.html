@@ -3,27 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ExpenseFlow v0.28</title>
+  <title>ExpenseFlow v0.29</title>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=28" />
-  <link rel="stylesheet" href="./ux-hybrid.css?v=28" />
-  <link rel="stylesheet" href="./ui-hotfix-v18.css?v=28" />
-  <link rel="stylesheet" href="./admin-user-management.css?v=28" />
-  <link rel="stylesheet" href="./management-portal-fixes-v20.css?v=28" />
-  <link rel="stylesheet" href="./notifications-v23.css?v=28" />
-  <link rel="stylesheet" href="./receipt-dashboard-phase1-v24.css?v=28" />
-  <link rel="stylesheet" href="./dashboard-summary-export-v25.css?v=28" />
-  <link rel="stylesheet" href="./dashboard-compact-v26.css?v=28" />
-  <link rel="stylesheet" href="./report-view-toggle-v27.css?v=28" />
-  <link rel="stylesheet" href="./report-history-v28.css?v=28" />
+  <link rel="stylesheet" href="./styles.css?v=29" />
+  <link rel="stylesheet" href="./ux-hybrid.css?v=29" />
+  <link rel="stylesheet" href="./ui-hotfix-v18.css?v=29" />
+  <link rel="stylesheet" href="./admin-user-management.css?v=29" />
+  <link rel="stylesheet" href="./management-portal-fixes-v20.css?v=29" />
+  <link rel="stylesheet" href="./notifications-v23.css?v=29" />
+  <link rel="stylesheet" href="./receipt-dashboard-phase1-v24.css?v=29" />
+  <link rel="stylesheet" href="./dashboard-summary-export-v25.css?v=29" />
+  <link rel="stylesheet" href="./dashboard-compact-v26.css?v=29" />
+  <link rel="stylesheet" href="./report-view-toggle-v27.css?v=29" />
+  <link rel="stylesheet" href="./dashboard-history-v29.css?v=29" />
+  <link rel="stylesheet" href="./editor-lock-v29.css?v=29" />
 </head>
 <body>
   <section id="authView" class="login">
     <div class="login-card">
       <div class="logo">Expense<span>Flow</span></div>
       <h1>Sign in</h1>
-      <p>ExpenseFlow v0.28. Sign in with your company email or register a new user account.</p>
+      <p>ExpenseFlow v0.29. Sign in with your company email or register a new user account.</p>
       <label>Company Email<input id="email" type="email" placeholder="name@company.com" autocomplete="email"></label>
       <label>Password<input id="password" type="password" placeholder="Enter password" autocomplete="current-password"></label>
       <div class="auth-actions">
@@ -47,7 +48,7 @@
     <main class="wrap">
       <section class="hero">
         <div class="hero-card">
-          <span class="eyebrow">ExpenseFlow v0.28</span>
+          <span class="eyebrow">ExpenseFlow v0.29</span>
           <h1>Ready for update</h1>
           <p>Blank banner placeholder for future announcement or company message.</p>
         </div>
@@ -62,7 +63,6 @@
         <button id="tab-dashboard" class="tab active" onclick="showView('dashboard')">Dashboard</button>
         <button id="tab-editor" class="tab" onclick="showView('editor')">Expense Report</button>
         <button id="tab-admin" class="tab hide" onclick="showView('admin')">Management Portal</button>
-        <button id="tab-firebase" class="tab" onclick="showView('firebase')">System Status</button>
       </div>
 
       <section id="dashboard">
@@ -75,7 +75,6 @@
         <div id="budgetSummary" class="quick"></div>
         <div class="toolbar">
           <div><h2 id="reportTitle">My Reports</h2><p id="reportSubtitle">Loaded from Firestore for the signed-in user.</p></div>
-          <button onclick="newReport()">+ Create Report</button>
         </div>
         <div id="reportList" class="report-list"></div>
       </section>
@@ -126,30 +125,22 @@
         <div id="budgetAdminCard" class="card table-card section-gap"><div class="admin-note"><h3>Admin Tools: Budget Management</h3><p class="muted">Set annual user budget. Fiscal Year runs 1 Nov to 31 Oct.</p><label style="max-width:180px">Fiscal Year<select id="budgetFySelect" onchange="adminDash()"></select></label></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>User</th><th>Role</th><th>Budget HKD</th><th>Used</th><th>Pending</th><th>Available</th><th>Action</th></tr></thead><tbody id="budgetRows"></tbody></table></div></div>
         <div class="card table-card section-gap"><div class="admin-note"><h3>All / Visible Reports</h3><p class="muted">Admin sees all reports. Manager sees submitted and reviewed reports.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>Status</th><th>User</th><th>Total HKD</th></tr></thead><tbody id="adminReports"></tbody></table></div></div>
       </section>
-
-      <section id="firebase" class="hide">
-        <div class="toolbar"><div><h2>System Status</h2><p>Connection and next implementation status.</p></div></div>
-        <div class="firebase-grid">
-          <div class="card"><h3>Authentication</h3><p id="authStatus" class="muted">Waiting for sign-in.</p></div>
-          <div class="card"><h3>Firestore</h3><p class="muted">Collections: users, expenseReports, budgets, approvalLogs, notifications</p></div>
-          <div class="card"><h3>Workflow</h3><p class="muted">Draft → Submitted → Manager Approved → Reimbursement Processing → Reimbursed</p></div>
-        </div>
-      </section>
     </main>
   </section>
-  <script src="./interval-guard-v21.js?v=28"></script>
-  <script type="module" src="./firebase-app.js?v=28"></script>
-  <script type="module" src="./management-v2.js?v=28"></script>
-  <script type="module" src="./register-profile.js?v=28"></script>
-  <script type="module" src="./ux-hybrid.js?v=28"></script>
-  <script type="module" src="./profile-and-dashboard-fixes.js?v=28"></script>
-  <script type="module" src="./admin-user-management.js?v=28"></script>
-  <script type="module" src="./management-fixes-stable-v21.js?v=28"></script>
-  <script type="module" src="./completed-report-group-v22.js?v=28"></script>
-  <script type="module" src="./notifications-v23.js?v=28"></script>
-  <script type="module" src="./receipt-dashboard-phase1-v24.js?v=28"></script>
-  <script type="module" src="./dashboard-summary-export-v25.js?v=28"></script>
-  <script type="module" src="./report-history-v28.js?v=28"></script>
-  <script src="./report-view-toggle-v27.js?v=28"></script>
+  <script src="./interval-guard-v21.js?v=29"></script>
+  <script type="module" src="./firebase-app.js?v=29"></script>
+  <script type="module" src="./management-v2.js?v=29"></script>
+  <script type="module" src="./register-profile.js?v=29"></script>
+  <script type="module" src="./ux-hybrid.js?v=29"></script>
+  <script type="module" src="./profile-and-dashboard-fixes.js?v=29"></script>
+  <script type="module" src="./admin-user-management.js?v=29"></script>
+  <script type="module" src="./management-fixes-stable-v21.js?v=29"></script>
+  <script type="module" src="./completed-report-group-v22.js?v=29"></script>
+  <script type="module" src="./notifications-v23.js?v=29"></script>
+  <script type="module" src="./receipt-dashboard-phase1-v24.js?v=29"></script>
+  <script type="module" src="./dashboard-summary-export-v25.js?v=29"></script>
+  <script type="module" src="./dashboard-history-v29.js?v=29"></script>
+  <script type="module" src="./editor-lock-v29.js?v=29"></script>
+  <script src="./report-view-toggle-v27.js?v=29"></script>
 </body>
 </html>
