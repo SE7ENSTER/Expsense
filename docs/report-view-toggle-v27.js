@@ -9,7 +9,7 @@ function preferredMode(){
 }
 function parseCard(card){
   const click=card.getAttribute('onclick')||'';
-  const id=(click.match(/openReport\(['\"]([^'\"]+)['\"]\)/)||[])[1]||'';
+  const id=(click.match(/openReport\(['\"]([^'\"]+)['\"]\)/)||[])[1]||card.dataset.reportId||'';
   const status=card.querySelector('.pill')?.textContent?.trim()||'-';
   const purpose=card.querySelector('h3')?.textContent?.trim()||'Untitled report';
   const trip=card.querySelector('p.muted:not(.small)')?.textContent?.trim()||'-';
@@ -20,19 +20,24 @@ function parseCard(card){
   return {id,click,status,purpose,trip,email,amount,items,next};
 }
 function signature(rows){return JSON.stringify(rows.map(r=>[r.id,r.status,r.purpose,r.trip,r.email,r.amount,r.items,r.next]))}
+function reviewReport(id){
+  if(!id)return;
+  if(typeof window.reviewReport==='function')window.reviewReport(id);
+  else if(typeof window.openReport==='function')window.openReport(id);
+}
 function buildTable(force=false){
   const list=document.getElementById('reportList');
   if(!list)return;
   let wrap=document.getElementById('reportTableWrap');
   if(!wrap){wrap=document.createElement('div');wrap.id='reportTableWrap';list.after(wrap)}
   const cards=[...list.querySelectorAll('.report-card')].filter(c=>!c.classList.contains('history-hidden'));
-  if(!cards.length){const empty='No reports found.';if(force||wrap.dataset.signature!==empty){wrap.innerHTML='<div class="report-grid-empty">No reports found.</div>';wrap.dataset.signature=empty}return}
+  if(!cards.length){const empty='No reports found.';if(force||wrap.dataset.signature!==empty){wrap.innerHTML='<div class="report-grid-empty">No reports found.</div>';wrap.dataset.signature=empty;lastTableSignature=empty}return}
   const rows=cards.map(parseCard),sig=signature(rows);
   if(!force&&sig===lastTableSignature&&wrap.dataset.signature===sig)return;
   lastTableSignature=sig;wrap.dataset.signature=sig;
-  wrap.innerHTML=`<div class="report-table-scroll"><table class="report-grid"><thead><tr><th>Status</th><th>Purpose / Trip</th><th>User</th><th>Total</th><th>Items</th><th>Next Step</th><th>Action</th></tr></thead><tbody>${rows.map((r,i)=>`<tr data-report-row="${i}" data-report-id="${escapeHtml(r.id)}"><td><span class="pill ${r.status==='Submitted'?'submitted':''}">${escapeHtml(r.status)}</span></td><td class="cell-purpose">${escapeHtml(r.purpose)}<span class="cell-sub">${escapeHtml(r.trip)}</span></td><td>${escapeHtml(r.email)}</td><td class="cell-total">${escapeHtml(r.amount)}</td><td>${escapeHtml(r.items)}</td><td class="cell-next">${escapeHtml(r.next)}</td><td><button class="secondary" type="button" data-report-open="${i}">Open</button></td></tr>`).join('')}</tbody></table></div>`;
+  wrap.innerHTML=`<div class="report-table-scroll"><table class="report-grid"><thead><tr><th>Status</th><th>Purpose / Trip</th><th>User</th><th>Total</th><th>Items</th><th>Next Step</th><th>Action</th></tr></thead><tbody>${rows.map((r,i)=>`<tr data-report-row="${i}" data-report-id="${escapeHtml(r.id)}"><td><span class="pill ${r.status==='Submitted'?'submitted':''}">${escapeHtml(r.status)}</span></td><td class="cell-purpose">${escapeHtml(r.purpose)}<span class="cell-sub">${escapeHtml(r.trip)}</span></td><td>${escapeHtml(r.email)}</td><td class="cell-total">${escapeHtml(r.amount)}</td><td>${escapeHtml(r.items)}</td><td class="cell-next">${escapeHtml(r.next)}</td><td><button class="secondary review-btn" type="button" data-report-review="${escapeHtml(r.id)}">Review</button></td></tr>`).join('')}</tbody></table></div>`;
   wrap.querySelectorAll('[data-report-row]').forEach(tr=>tr.addEventListener('click',ev=>{if(ev.target.closest('button'))return;const r=rows[Number(tr.dataset.reportRow)];if(r?.id&&window.openReport)window.openReport(r.id);else if(r?.click)Function(r.click)()}));
-  wrap.querySelectorAll('[data-report-open]').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation();const r=rows[Number(btn.dataset.reportOpen)];if(r?.id&&window.openReport)window.openReport(r.id);else if(r?.click)Function(r.click)()}));
+  wrap.querySelectorAll('[data-report-review]').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation();reviewReport(btn.dataset.reportReview)}));
 }
 function escapeHtml(value){return String(value||'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]||c))}
 function applyMode(mode,force=false){
@@ -50,13 +55,13 @@ function injectToggle(){
   applyMode(preferredMode(),false);
 }
 function patchViewChanges(){
-  const oldShow=window.showView;if(oldShow&&!window.__reportViewShowPatched){window.__reportViewShowPatched=true;window.showView=view=>{oldShow(view);if(view==='dashboard')setTimeout(()=>{injectToggle();applyMode(preferredMode(),true)},350)}}
-  const oldRefresh=window.refreshAdmin;if(oldRefresh&&!window.__reportViewRefreshPatched){window.__reportViewRefreshPatched=true;window.refreshAdmin=async()=>{await oldRefresh();setTimeout(()=>{injectToggle();applyMode(preferredMode(),true)},450)}}
+  const oldShow=window.showView;if(oldShow&&!window.__reportViewShowPatched){window.__reportViewShowPatched=true;window.showView=view=>{oldShow(view);if(view==='dashboard')setTimeout(()=>{injectToggle();applyMode(preferredMode(),false)},350)}}
+  const oldRefresh=window.refreshAdmin;if(oldRefresh&&!window.__reportViewRefreshPatched){window.__reportViewRefreshPatched=true;window.refreshAdmin=async()=>{await oldRefresh();setTimeout(()=>{lastTableSignature='';injectToggle();applyMode(preferredMode(),true)},450)}}
 }
 function observeReports(){
   const list=document.getElementById('reportList');if(!list||list.__reportViewObserved)return;list.__reportViewObserved=true;
-  new MutationObserver(mutations=>{if(!mutations.some(m=>m.type==='childList'))return;clearTimeout(reportViewObserverTimer);reportViewObserverTimer=setTimeout(()=>applyMode(preferredMode(),false),350)}).observe(list,{childList:true,subtree:false});
+  new MutationObserver(mutations=>{if(!mutations.some(m=>m.type==='childList'&&m.target===list))return;clearTimeout(reportViewObserverTimer);reportViewObserverTimer=setTimeout(()=>applyMode(preferredMode(),false),400)}).observe(list,{childList:true,subtree:false});
 }
 function init(){patchViewChanges();injectToggle();observeReports()}
 setTimeout(init,1700);
-console.log('ExpenseFlow report view toggle v27 stable active');
+console.log('ExpenseFlow report view toggle v27 stable review active');
