@@ -1,0 +1,27 @@
+/* ExpenseFlow modern compact dashboard - staging only */
+:root{--ef-blue:#0b6cff;--ef-ink:#10233f;--ef-muted:#66758f;--ef-border:#dfe7f1;--ef-bg:#f5f8fc;--ef-card:#fff}
+body{background:var(--ef-bg)!important;color:var(--ef-ink)!important}
+#stagingBanner{margin-left:228px!important;border-radius:0!important;border-left:0!important;border-right:0!important}
+.top{margin-left:228px!important;padding:14px 22px!important;background:#fff!important;border-bottom:1px solid var(--ef-border)!important;position:sticky;top:0;z-index:90}
+.top>.logo,.top>div:first-child>.logo{display:none!important}.top-actions{gap:8px!important}
+main.wrap{margin-left:228px!important;max-width:none!important;padding:24px 28px 40px!important}
+.hero{display:none!important}.tabs{display:none!important}
+.ef-side-nav{position:fixed;inset:0 auto 0 0;width:228px;background:#fff;border-right:1px solid var(--ef-border);z-index:100;padding:20px 14px;display:flex;flex-direction:column}
+.ef-brand{font-size:22px;font-weight:900;letter-spacing:-.03em;padding:2px 12px 26px;color:#0f1d35}.ef-brand span{color:var(--ef-blue)}
+.ef-menu{display:grid;gap:8px}.ef-menu button{width:100%;justify-content:flex-start!important;background:transparent!important;color:#40516e!important;border:0!important;box-shadow:none!important;padding:12px 14px!important;border-radius:12px!important;font-weight:750!important;text-align:left}.ef-menu button.active{background:#eaf2ff!important;color:var(--ef-blue)!important}.ef-menu button:hover{background:#f2f6fb!important}.ef-help{margin-top:auto;border:1px solid var(--ef-border);border-radius:14px;padding:14px;color:var(--ef-muted);font-size:13px}
+#dashboard{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+#dashboard>.quick,#dashboard>#budgetSummary,#dashboard>#phase1ReportSummary,#dashboard>.toolbar,#dashboard>#reportList,#dashboard>#reportTableWrap,#dashboard>#reportHistorySection{grid-column:1}
+#dashboard>.quick{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:14px!important;margin:0 0 6px!important}
+#dashboard>.quick .card{padding:18px!important;border:1px solid var(--ef-border)!important;border-radius:16px!important;box-shadow:none!important;min-height:92px}.quick .card strong{font-size:28px!important}.quick .muted{font-size:13px!important}
+#phase1ReportSummary{display:none!important}
+#dashboard>.toolbar{background:transparent!important;padding:8px 0 4px!important;margin:4px 0!important;align-items:center!important}
+#dashboard>.toolbar h2{font-size:23px!important;margin:0!important}.report-title-wrap p{display:none!important}
+#reportViewToggle{display:none!important}
+#reportList{display:none!important}
+#reportTableWrap{border:1px solid var(--ef-border);border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 8px 30px rgba(16,35,63,.05)}
+.report-table-scroll{overflow:auto}.report-grid{min-width:900px!important}.report-grid th{background:#f8fafc!important;color:#687892!important;font-size:11px!important;text-transform:uppercase;letter-spacing:.04em;padding:13px 14px!important}.report-grid td{padding:14px!important;border-top:1px solid #edf1f6!important;font-size:13px!important}.report-grid tr{cursor:pointer}.report-grid tbody tr:hover{background:#f8fbff!important}.cell-purpose{font-weight:800!important}.cell-sub{font-size:11px!important;margin-top:3px!important;color:#75839b!important}.cell-total{font-weight:850!important}.review-btn{padding:8px 13px!important;border-radius:10px!important;background:#eef5ff!important;color:var(--ef-blue)!important;border:1px solid #cfe0ff!important;box-shadow:none!important}
+.ef-detail-panel{grid-column:2;grid-row:1 / span 6;position:sticky;top:88px;background:#fff;border:1px solid var(--ef-border);border-radius:18px;min-height:560px;padding:20px;box-shadow:0 8px 30px rgba(16,35,63,.05)}
+.ef-detail-panel h3{margin:0 0 5px;font-size:20px}.ef-detail-meta{color:var(--ef-muted);font-size:12px;margin-bottom:16px}.ef-detail-summary{display:flex;gap:12px;flex-wrap:wrap;padding:14px 0;border-top:1px solid var(--ef-border);border-bottom:1px solid var(--ef-border);font-size:13px}.ef-detail-summary span{display:inline-flex;align-items:center;gap:5px}.ef-workflow{padding:16px 0}.ef-workflow h4{margin:0 0 14px}.ef-step{position:relative;padding:0 0 18px 28px;color:#6c7a90;font-size:13px}.ef-step:before{content:'';position:absolute;left:3px;top:2px;width:12px;height:12px;border:2px solid #aebbd0;border-radius:50%;background:#fff}.ef-step:after{content:'';position:absolute;left:9px;top:18px;width:2px;height:22px;background:#d7e0eb}.ef-step:last-child:after{display:none}.ef-step.current{color:var(--ef-ink);font-weight:800}.ef-step.current:before{border-color:var(--ef-blue);box-shadow:inset 0 0 0 3px #fff;background:var(--ef-blue)}.ef-open-btn{width:100%;margin-top:8px!important}
+#reportHistorySection{margin-top:12px!important}
+@media(max-width:1100px){#dashboard{grid-template-columns:1fr}.ef-detail-panel{grid-column:1;grid-row:auto;position:static}.ef-side-nav{width:190px}main.wrap,.top,#stagingBanner{margin-left:190px!important}}
+@media(max-width:760px){.ef-side-nav{display:none}main.wrap,.top,#stagingBanner{margin-left:0!important}main.wrap{padding:16px!important}#dashboard>.quick{grid-template-columns:1fr!important}.top{padding:10px 14px!important}}
