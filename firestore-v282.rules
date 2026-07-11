@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn(){ return request.auth != null; }
+    function userDoc(){ return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function myRole(){ return signedIn() && exists(userDoc()) ? get(userDoc()).data.role : 'user'; }
+    function isAdmin(){ return myRole() == 'admin'; }
+    function isManager(){ return myRole() == 'manager'; }
+    function isFinance(){ return myRole() == 'finance'; }
+    function isBackOffice(){ return isAdmin() || isManager() || isFinance(); }
+    function owner(){ return signedIn() && resource.data.userId == request.auth.uid; }
+    function reportIdentityUnchanged(){
+      return request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (!('reportNo' in resource.data) || request.resource.data.reportNo == resource.data.reportNo)
+        && (!('runNumber' in resource.data) || request.resource.data.runNumber == resource.data.runNumber);
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn() && ((userId == request.auth.uid && request.resource.data.role == 'user') || isAdmin());
+      allow read: if signedIn() && (userId == request.auth.uid || isBackOffice());
+      allow update, delete: if signedIn() && isAdmin();
+    }
+
+    match /budgets/{budgetId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow read: if signedIn() && (resource.data.recipientUserId == request.auth.uid || resource.data.recipientRole == myRole() || isAdmin());
+      allow update: if signedIn() && (resource.data.recipientUserId == request.auth.uid || resource.data.recipientRole == myRole() || isAdmin());
+      allow delete: if signedIn() && isAdmin();
+    }
+
+    match /approvalLogs/{logId} {
+      allow read: if signedIn() && isBackOffice();
+      allow create: if signedIn() && isBackOffice();
+      allow update, delete: if false;
+    }
+
+    match /paymentLogs/{logId} {
+      allow read, create: if signedIn() && (isAdmin() || isFinance());
+      allow update, delete: if false;
+    }
+
+    match /expenseReports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status in ['Draft','Submitted'];
+
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid
+        || isAdmin()
+        || (isManager() && resource.data.status in ['Submitted','Manager Approved','Rejected','Revision Requested','Reimbursement Processing','Finance Processing','Financial Processing','Reimbursed','Closed'])
+        || (isFinance() && resource.data.status in ['Manager Approved','Reimbursement Processing','Finance Processing','Financial Processing','Reimbursed','Closed'])
+      );
+
+      allow update: if signedIn() && (
+        isAdmin()
+        || (
+          owner()
+          && resource.data.status in ['Draft','Revision Requested']
+          && request.resource.data.status in ['Draft','Submitted']
+          && reportIdentityUnchanged()
+        )
+        || (
+          isManager()
+          && resource.data.status == 'Submitted'
+          && request.resource.data.status in ['Manager Approved','Rejected','Revision Requested']
+          && reportIdentityUnchanged()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','managerStatus','managerId','managerEmail','managerComment','managerActionAt','updatedAt','fiscalYear','totalHkd'])
+        )
+        || (
+          isFinance()
+          && resource.data.status in ['Manager Approved','Reimbursement Processing','Finance Processing','Financial Processing']
+          && request.resource.data.status in ['Reimbursement Processing','Reimbursed','Closed']
+          && reportIdentityUnchanged()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','financeStatus','financeBy','financeEmail','paymentReference','financeRemark','financeActionAt','updatedAt'])
+        )
+      );
+
+      allow delete: if signedIn() && isAdmin();
+    }
+  }
+}
