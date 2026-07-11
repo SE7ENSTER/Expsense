@@ -1,43 +1,34 @@
-/* ExpenseFlow v0.28.1 - use Management Portal review action from dashboard/history tables */
+/* ExpenseFlow v0.28.1 - stable delegated Review actions without DOM rewriting */
 (function(){
   function review(id){
     if(!id)return;
-    if(typeof window.reviewReport==='function'){
-      window.reviewReport(id);
-      return;
-    }
-    if(typeof window.openReport==='function')window.openReport(id);
-  }
-
-  function updateButtons(){
-    document.querySelectorAll('[data-history-btn]').forEach(btn=>{
-      btn.textContent='Review';
-      btn.classList.add('review-btn');
-      btn.setAttribute('aria-label','Review expense report');
-    });
-    document.querySelectorAll('[data-report-open]').forEach(btn=>{
-      btn.textContent='Review';
-      btn.classList.add('review-btn');
-      btn.setAttribute('aria-label','Review expense report');
-    });
+    if(typeof window.reviewReport==='function')window.reviewReport(id);
+    else if(typeof window.openReport==='function')window.openReport(id);
   }
 
   document.addEventListener('click',event=>{
-    const historyBtn=event.target.closest('[data-history-btn]');
+    const historyBtn=event.target.closest('[data-history-review],[data-history-btn]');
     if(historyBtn){
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      review(historyBtn.dataset.historyBtn);
+      const id=historyBtn.dataset.historyReview||historyBtn.dataset.historyBtn||'';
+      if(id){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        review(id);
+      }
       return;
     }
-    const tableBtn=event.target.closest('[data-report-open]');
+
+    const tableBtn=event.target.closest('[data-report-review],[data-report-open]');
     if(tableBtn){
       const row=tableBtn.closest('[data-report-row]');
-      const cardIndex=Number(tableBtn.dataset.reportOpen);
-      const cards=[...document.querySelectorAll('#reportList .report-card')];
-      const card=cards[cardIndex];
-      const click=card?.getAttribute('onclick')||'';
-      const id=(click.match(/openReport\(['\"]([^'\"]+)['\"]\)/)||[])[1]||row?.dataset.reportId||'';
+      let id=tableBtn.dataset.reportReview||row?.dataset.reportId||'';
+      if(!id&&tableBtn.dataset.reportOpen!==undefined){
+        const cardIndex=Number(tableBtn.dataset.reportOpen);
+        const cards=[...document.querySelectorAll('#reportList .report-card')].filter(c=>!c.classList.contains('history-hidden'));
+        const card=cards[cardIndex];
+        const click=card?.getAttribute('onclick')||'';
+        id=(click.match(/openReport\(['\"]([^'\"]+)['\"]\)/)||[])[1]||'';
+      }
       if(id){
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -46,12 +37,5 @@
     }
   },true);
 
-  let timer=null;
-  new MutationObserver(()=>{
-    clearTimeout(timer);
-    timer=setTimeout(updateButtons,80);
-  }).observe(document.body,{childList:true,subtree:true});
-
-  setTimeout(updateButtons,1800);
-  console.log('ExpenseFlow report review action v0.28.1 active');
+  console.log('ExpenseFlow report review action v0.28.1 stable active');
 })();
