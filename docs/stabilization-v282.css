@@ -1,0 +1,7 @@
+/* ExpenseFlow v0.28.2 staging */
+.staging-banner{margin:0 0 16px;padding:12px 16px;border:1px solid #f5c451;background:#fff8e6;color:#8a5b00;border-radius:16px;font-size:13px;font-weight:800}
+.editor-readonly-banner{margin:0 0 16px;padding:14px 16px;border:1px solid #bfd4ff;background:#eef5ff;color:#163b73;border-radius:16px;font-size:13px}
+#editor[data-readonly="true"] input,#editor[data-readonly="true"] select,#editor[data-readonly="true"] textarea,#editor[data-readonly="true"] input[type="file"]{pointer-events:none;opacity:.72;background:#f4f6f8}
+#editor[data-readonly="true"] button[onclick*="saveReport"],#editor[data-readonly="true"] button[onclick*="addItem"],#editor[data-readonly="true"] button[onclick*="removeItem"],#editor[data-readonly="true"] button[onclick*="clearForm"]{display:none!important}
+.field-error{outline:2px solid #e5484d!important;outline-offset:1px}
+.validation-summary{margin:0 0 16px;padding:12px 16px;border:1px solid #f3b4b7;background:#fff1f2;color:#9f1239;border-radius:14px;font-size:13px}
