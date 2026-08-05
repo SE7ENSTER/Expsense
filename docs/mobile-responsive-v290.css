@@ -1,0 +1,67 @@
+/* ExpenseFlow functional staging mobile responsiveness v0.29.0 */
+html,body{max-width:100%;overflow-x:hidden}
+@media (max-width:900px){
+  #appView,.app-shell,.main-workspace,main.wrap,.wrap,#dashboard,#editor,#admin,#firebase{width:100%!important;max-width:100%!important;min-width:0!important}
+  .app-shell{display:block!important;grid-template-columns:1fr!important;margin:0!important}
+  .app-sidebar{display:none!important;visibility:hidden!important;pointer-events:none!important}
+  .main-workspace{display:block!important;margin:0!important;padding:0!important}
+  .top{position:sticky!important;top:0!important;min-height:60px!important;padding:10px 12px!important;gap:8px!important;align-items:center!important;flex-wrap:nowrap!important}
+  .top>div:first-child{min-width:0!important;flex:1!important}
+  .top>div:first-child .logo{font-size:20px!important}
+  .top>div:first-child .muted,.top>div:first-child small{display:none!important}
+  .top-actions{width:auto!important;min-width:0!important;gap:6px!important;justify-content:flex-end!important}
+  .top-actions:before{display:none!important}
+  .top-actions button,#profileBtn{padding:9px 10px!important;min-height:40px!important;border-radius:12px!important}
+  #profileBtn span:not(.profile-avatar-small),#profileBtn small{display:none!important}
+  main.wrap,.wrap{padding:12px!important;margin:0!important}
+  #stagingBanner{font-size:11px!important;line-height:1.35!important;padding:10px 12px!important;margin:0 0 12px!important;border-radius:12px!important}
+  .hero,.hero-card{display:none!important}
+  .tabs{display:flex!important;overflow-x:auto!important;flex-wrap:nowrap!important;gap:8px!important;margin:10px 0 14px!important;padding-bottom:2px!important;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{white-space:nowrap!important;padding:10px 13px!important;font-size:13px!important}
+  .quick,.admin-grid,.firebase-grid,.mgmt-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;margin-bottom:12px!important}
+  .quick .card,.admin-grid .card,.firebase-grid .card,.mgmt-summary .card{padding:14px!important;border-radius:16px!important;min-width:0!important}
+  .quick strong,.mgmt-summary strong{font-size:22px!important}
+  #phase1ReportSummary{overflow:hidden!important}
+  #phase1ReportSummary .summary-grid,#phase1ReportSummary .phase1-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .toolbar{margin:16px 0 10px!important;gap:10px!important;align-items:stretch!important}
+  .toolbar h2{font-size:23px!important}
+  .toolbar p{font-size:12px!important}
+  .toolbar>div,.toolbar .top-actions{width:100%!important}
+  .toolbar button{justify-content:center!important}
+  #reportViewToggle{align-self:flex-start!important}
+  #reportTableWrap{display:none!important}
+  body.report-card-mode #reportList,body:not(.report-table-mode) #reportList{display:flex!important}
+  #reportList{gap:10px!important}
+  .report-card{display:grid!important;grid-template-columns:1fr auto!important;gap:6px 10px!important;padding:14px!important;border-radius:16px!important;min-width:0!important}
+  .report-card .pill{grid-column:1!important;grid-row:auto!important;justify-self:start!important}
+  .report-card h3{grid-column:1/-1!important;font-size:16px!important;overflow-wrap:anywhere!important}
+  .report-card p{grid-column:1/-1!important;font-size:12px!important;overflow-wrap:anywhere!important}
+  .report-card .row{grid-column:1!important;grid-row:auto!important;display:flex!important;flex-direction:row!important;gap:8px!important;flex-wrap:wrap!important}
+  .report-view-tag{grid-column:2!important;grid-row:1!important;justify-self:end!important}
+  .meta,.layout,.item,.form{grid-template-columns:1fr!important}
+  .meta{padding:14px!important;border-radius:18px!important;gap:10px!important}
+  .meta:before{font-size:18px!important}
+  .item{padding:14px!important;border-radius:18px!important;gap:10px!important}
+  .item:before{display:none!important}
+  .form{padding-top:0!important;gap:10px!important}
+  .seq{width:40px!important;height:40px!important;border-radius:12px!important}
+  .side{position:static!important;top:auto!important}
+  .review-modal{padding:8px!important;align-items:end!important}
+  .review-box{width:100%!important;max-width:100%!important;max-height:94dvh!important;border-radius:20px 20px 0 0!important;padding:14px!important}
+  .review-head{gap:8px!important;align-items:flex-start!important}
+  .review-head h2{font-size:19px!important}
+  .review-grid,.receipt-grid{grid-template-columns:1fr!important}
+  .table-wrap,.report-table-scroll{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+  .admin-table,.report-grid{min-width:720px!important}
+  .mgmt-filter{grid-template-columns:1fr!important;padding:12px!important}
+}
+@media (max-width:520px){
+  .quick,.admin-grid,.firebase-grid,.mgmt-summary,#phase1ReportSummary .summary-grid,#phase1ReportSummary .phase1-summary-grid{grid-template-columns:1fr!important}
+  .top-actions button:not(#profileBtn):not(#notificationBell){padding:9px!important;font-size:0!important}
+  .top-actions button:not(#profileBtn):not(#notificationBell)::after{content:'Exit';font-size:12px}
+  .auth-actions{grid-template-columns:1fr!important}
+  .login{padding:12px!important}
+  .login-card{width:100%!important;padding:22px!important;border-radius:20px!important}
+  .login-card h1{font-size:28px!important}
+}
