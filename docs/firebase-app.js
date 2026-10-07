@@ -1,8 +1,9 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+import { firebaseConfig, exposeEnvironment } from './app-config.js';
 
-const firebaseConfig={apiKey:'AIzaSyByUZX7ScSa__yrkmOjh9sbviKg1Qppcl4',authDomain:'expsense-cf0a5.firebaseapp.com',projectId:'expsense-cf0a5',storageBucket:'expsense-cf0a5.firebasestorage.app',messagingSenderId:'667841901219',appId:'1:667841901219:web:6c9c2226ab74885eb08516',measurementId:'G-0CFSZ757Z9'};
+exposeEnvironment();
 const app=initializeApp(firebaseConfig);const auth=getAuth(app);const db=getFirestore(app);
 const CURRENCIES=['AUD','BDT','BND','CNY','HKD','IDR','INR','JPY','KHR','KRW','LAK','LKR','MMK','MOP','MYR','NPR','NZD','PHP','PKR','SGD','THB','TWD','VND','USD','EUR'];
 const FX={HKD:1,USD:7.85,EUR:8.5,VND:.0031,THB:.25,SGD:5.8,MYR:1.68,IDR:.0005,PHP:.134,CNY:1.08,JPY:.053,KRW:.0057,AUD:5.15,NZD:4.75,TWD:.25,MOP:.97,INR:.094,KHR:.0019,LAK:.00036,MMK:.0037,LKR:.026,BND:5.8,BDT:.071,NPR:.059,PKR:.028};
