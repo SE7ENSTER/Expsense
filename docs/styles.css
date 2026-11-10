@@ -7,3 +7,11 @@
 .logo .brand-app-name{color:var(--blue);font-size:22px;white-space:nowrap}
 .login-card .brand-lockup{gap:12px;margin-bottom:16px}
 @media(max-width:760px){.brand-logo{width:145px}.logo .brand-app-name{font-size:20px}.logo.brand-lockup{gap:10px}}
+
+/* Monthly submission notice, shared by all signed-in views. */
+.submission-deadline{padding:24px 28px;border:1px solid #bfdbfe;border-left:5px solid #2563eb;border-radius:22px;background:linear-gradient(120deg,#eff6ff,#fff);box-shadow:0 10px 28px rgba(37,99,235,.06);color:#0f172a;min-width:0}
+.deadline-badge{display:inline-block;margin-bottom:10px;font-size:11px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:#1d4ed8}
+.submission-deadline h2{margin:0;font-size:clamp(20px,2.4vw,28px);line-height:1.35;letter-spacing:-.02em;text-wrap:balance}
+.submission-deadline h2 strong{color:#1d4ed8}
+.submission-deadline p{margin:10px 0 0;color:#475569;line-height:1.5}
+@media(max-width:760px){.submission-deadline{padding:20px;border-radius:18px}}
