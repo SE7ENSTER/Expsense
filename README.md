@@ -26,3 +26,5 @@ See [cleanup notes](CLEANUP_NOTES.md) for ownership, regression coverage, releas
 ## Deployment
 
 The custom `.github/workflows/deploy.yml` verifies production imports/assets and runs the regression suite before publishing `docs/`. Pull requests run verification only. Ensure GitHub Pages is configured to use **GitHub Actions** if this workflow is to be the only publication path.
+
+The [Firebase Rules audit](FIREBASE_RULES_AUDIT.md) documents the separate emulator checks, their findings, and the remaining deployed-rules verification step.

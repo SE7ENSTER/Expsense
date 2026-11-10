@@ -45,3 +45,7 @@ The custom deployment workflow now runs those checks before its deploy job and v
 - Backend field/transition restrictions, canonical Finance statuses, trusted admin account provisioning and atomic status/audit-log writes from `CODE_REVIEW_2026-11-10.md` remain separate work.
 - Binary receipts are still stored inside report documents; this cleanup removes the delayed metadata write but does not implement object storage or eliminate the document size limit.
 - Transactional report-number allocation/backfill is not introduced. Existing saved numbers remain unchanged; missing numbers still show `Not assigned`.
+
+## Follow-up: real Rules engine verification
+
+`FIREBASE_RULES_AUDIT.md` and `RULES_AUDIT_RESULTS.json` now record 76 operations evaluated by the actual Firestore Emulator against both repository rulesets. This is stronger than the mocked UI suite, but it still does not establish which rules are deployed. The repository file had 19 expectation mismatches; the candidate had 9. No replacement rules were published. Read that report before releasing the app/rules together.
