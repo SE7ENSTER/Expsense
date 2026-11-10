@@ -444,14 +444,52 @@ window.saveReport = async (status = "Draft") => {
     alert("Only Admin can update another user report.");
     return false;
   }
+  if (
+    !isAdmin() &&
+    currentSaved &&
+    !["Draft", "Revision Requested"].includes(current?.status)
+  ) {
+    alert("Only Draft or Revision Requested reports can be edited.");
+    return false;
+  }
+  if (!["Draft", "Submitted"].includes(status)) return false;
+  if (
+    rows.some(
+      (item) =>
+        !Number.isFinite(Number(item.amount)) ||
+        Number(item.amount) < 0 ||
+        !Number.isFinite(Number(item.fx)) ||
+        Number(item.fx) <= 0,
+    )
+  ) {
+    alert("Enter a valid amount and a positive exchange rate for each item.");
+    return false;
+  }
+  const total = rows.reduce(
+    (sum, item) => sum + Number(item.amount) * Number(item.fx),
+    0,
+  );
+  if (
+    !Number.isFinite(total) ||
+    (status === "Submitted" && (!rows.length || total <= 0))
+  ) {
+    alert("A submitted report must contain expenses with a positive total.");
+    return false;
+  }
   saving = true;
   const version = sessionVersion,
     report = current || blankReport(),
     wasSaved = currentSaved;
   try {
+    const meta = readMeta();
+    const date = meta.fromDate ? new Date(meta.fromDate) : new Date();
+    const fiscalYear =
+      "FY" +
+      (date.getMonth() >= 10 ? date.getFullYear() + 1 : date.getFullYear());
     const data = {
       ...report,
-      meta: readMeta(),
+      meta,
+      fiscalYear,
       items: structuredClone(rows),
       totalHkd: rows.reduce(
         (sum, item) =>

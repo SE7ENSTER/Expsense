@@ -169,7 +169,13 @@ exports.createRuntime = async function ({
       return { user: created };
     },
     collection: (_, name) => ({ name, kind: "collection" }),
-    doc: (_, name, id) => ({ name, id, key: name + "/" + id }),
+    doc: (db, name, id) => {
+      if (db?.kind === "collection") {
+        name = db.name;
+        id = "generated-" + ++clock;
+      }
+      return { name, id, key: name + "/" + id };
+    },
     query: (ref, ...conditions) => ({ ...ref, conditions }),
     where: (field, op, value) => ({ field, op, value }),
     serverTimestamp: () => ({ seconds: ++clock }),
@@ -215,6 +221,31 @@ exports.createRuntime = async function ({
           : structuredClone(value),
       );
     },
+    writeBatch: () => {
+      const pending = [];
+      return {
+        set(ref, value, options) {
+          pending.push({ ref, value, options });
+          return this;
+        },
+        async commit() {
+          if (pauseWrite) await pauseWrite;
+          if (failNextWrite) {
+            failNextWrite = false;
+            throw Error("Simulated write failure");
+          }
+          for (const { ref, value, options } of pending) {
+            writes.push({ key: ref.key, value: structuredClone(value) });
+            data.set(
+              ref.key,
+              options?.merge
+                ? { ...data.get(ref.key), ...structuredClone(value) }
+                : structuredClone(value),
+            );
+          }
+        },
+      };
+    },
     addDoc: async (ref, value) => {
       const id = "generated-" + ++clock,
         key = ref.name + "/" + id;
@@ -245,6 +276,7 @@ exports.createRuntime = async function ({
               "where",
               "setDoc",
               "addDoc",
+              "writeBatch",
               "serverTimestamp",
             ]
           : ["initializeApp", "getApp"];

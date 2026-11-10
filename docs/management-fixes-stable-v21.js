@@ -1,16 +1,7 @@
-import { db } from "./firebase-client.js";
 import { on } from "./app-events.js";
-import {
-  doc,
-  setDoc,
-  addDoc,
-  collection,
-  serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 let me = null,
   profile = { role: "user" };
 const $ = (id) => document.getElementById(id);
-const canBudget = () => ["admin", "finance"].includes(profile.role);
 const canApprove = () => ["admin", "manager"].includes(profile.role);
 function updateWording() {
   document.querySelectorAll("*").forEach((el) => {
@@ -43,18 +34,6 @@ function styleActionButtons() {
       t === "process" || t.includes("reimbursement") || t === "reimbursed",
     );
   });
-}
-function enableBudgetForFinance() {
-  if (!canBudget()) return;
-  document
-    .querySelectorAll('#budgetRows input[id^="budget-"]')
-    .forEach((input) => {
-      input.disabled = false;
-      const uid = input.id.replace("budget-", "");
-      const actionCell = input.closest("tr")?.lastElementChild;
-      if (actionCell && !actionCell.querySelector("button"))
-        actionCell.innerHTML = `<button class="secondary" onclick="saveBudget('${uid}')">Save</button>`;
-    });
 }
 function getReportIdFromRow(row) {
   const btn = [...row.querySelectorAll("button")].find(
@@ -98,33 +77,15 @@ window.batchApproveSelected = async () => {
     .filter(Boolean);
   if (!selected.length)
     return alert("Please select at least one submitted report.");
-  const comment = prompt("Batch approval comment:") || "";
+  const comment = prompt("Batch approval comment:");
+  if (comment === null) return;
+  let approved = 0;
   for (const id of selected) {
-    await setDoc(
-      doc(db, "expenseReports", id),
-      {
-        status: "Manager Approved",
-        managerStatus: "Approved",
-        managerId: me.uid,
-        managerEmail: me.email,
-        managerComment: comment,
-        managerActionAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    await addDoc(collection(db, "approvalLogs"), {
-      reportId: id,
-      action: "Manager Approved",
-      actionBy: me.uid,
-      actionByEmail: me.email,
-      comment,
-      createdAt: serverTimestamp(),
-    });
+    if (await window.managerAction(id, "Manager Approved", comment)) approved++;
   }
-  alert(selected.length + " report(s) approved.");
-  if (window.refreshAdmin) await window.refreshAdmin();
+  alert(approved + " report(s) approved.");
 };
+
 function addPrintButtons() {
   document.querySelectorAll(".review-modal").forEach((modal) => {
     const head = modal.querySelector(".review-head");
@@ -152,7 +113,6 @@ function printReviewModal(modal) {
 function applyFixes() {
   updateWording();
   styleActionButtons();
-  enableBudgetForFinance();
   addBatchApprove();
   addPrintButtons();
 }

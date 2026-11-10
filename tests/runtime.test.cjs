@@ -458,3 +458,55 @@ test("repeated navigation never replaces action implementations or duplicates co
   assert.equal(r.intervals.size, 1);
   assert.deepEqual(r.errors, []);
 });
+
+test("owner save persists fiscal year and total before manager review", async () => {
+  const r = await createRuntime({ reports: [report("1")] });
+  await r.login();
+  await r.window.openReport("1");
+  assert.equal(await r.window.saveReport("Submitted"), true);
+  const saved = r.data.get("expenseReports/1");
+  assert.equal(saved.fiscalYear, "FY2027");
+  assert.equal(saved.totalHkd, 50);
+});
+test("manager payload contains no expense or identity updates", async () => {
+  const r = await createRuntime({
+    role: "manager",
+    uid: "manager-1",
+    reports: [report("1", "Submitted")],
+  });
+  await r.login();
+  await r.window.managerAction("1", "Manager Approved");
+  const write = r.writes.find((x) => x.key === "expenseReports/1");
+  for (const field of [
+    "items",
+    "meta",
+    "totalHkd",
+    "fiscalYear",
+    "reportNo",
+    "runNumber",
+    "userId",
+    "createdAt",
+  ])
+    assert.equal(Object.hasOwn(write.value, field), false, field);
+});
+test("finance cannot skip Processing or use a blank payment reference", async () => {
+  const r = await createRuntime({
+    role: "finance",
+    uid: "finance-1",
+    reports: [report("1", "Manager Approved")],
+  });
+  await r.login();
+  assert.equal(await r.window.financeAction("1", "Reimbursed"), false);
+  assert.equal(r.writes.length, 0);
+  await r.window.financeAction("1", "Finance Processing");
+  r.context.prompt = () => "  ";
+  await r.window.financeAction("1", "Reimbursed");
+  assert.equal(r.data.get("expenseReports/1").status, "Finance Processing");
+});
+test("owner cannot save over a submitted report", async () => {
+  const r = await createRuntime({ reports: [report("1", "Submitted")] });
+  await r.login();
+  await r.window.openReport("1");
+  assert.equal(await r.window.saveReport("Draft"), false);
+  assert.equal(r.writes.length, 0);
+});

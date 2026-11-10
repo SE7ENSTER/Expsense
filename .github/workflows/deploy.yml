@@ -4,10 +4,28 @@ on:
   push:
     branches: [main]
     paths:
-      ["docs/**", "tests/**", "package.json", ".github/workflows/deploy.yml"]
+      [
+        "docs/**",
+        "tests/**",
+        "package.json",
+        ".github/workflows/deploy.yml",
+        "firestore.rules",
+        "firebase*.json",
+        "backups/**",
+        "RELEASE_RULES_20261110.md",
+      ]
   pull_request:
     paths:
-      ["docs/**", "tests/**", "package.json", ".github/workflows/deploy.yml"]
+      [
+        "docs/**",
+        "tests/**",
+        "package.json",
+        ".github/workflows/deploy.yml",
+        "firestore.rules",
+        "firebase*.json",
+        "backups/**",
+        "RELEASE_RULES_20261110.md",
+      ]
   workflow_dispatch:
 
 permissions:
@@ -34,9 +52,29 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/slg-tests/node_modules
         run: npm test
 
+  verify-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install isolated Firebase test tools
+        run: npm install --prefix "$RUNNER_TEMP/slg-rules" --no-save --package-lock=false --ignore-scripts firebase-tools@15.35.0 @firebase/rules-unit-testing@6.0.0 firebase@13.2.0
+      - name: Verify rules in isolated Firestore Emulator
+        env:
+          NODE_PATH: ${{ runner.temp }}/slg-rules/node_modules
+        run: |
+          export PATH="$RUNNER_TEMP/slg-rules/node_modules/.bin:$PATH"
+          npm run test:rules
+
   deploy:
     if: github.event_name != 'pull_request'
-    needs: verify
+    needs: [verify, verify-rules]
     runs-on: ubuntu-latest
     permissions:
       contents: read

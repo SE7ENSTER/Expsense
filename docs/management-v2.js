@@ -6,7 +6,7 @@ import {
   doc,
   getDocs,
   setDoc,
-  addDoc,
+  writeBatch,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -370,24 +370,36 @@ window.reviewReport = async (id, receiptsOnly = false) => {
   emit("review-opened", { modal, report: r });
   return true;
 };
-window.managerAction = async (id, status) => {
+window.managerAction = async (id, status, batchComment) => {
   if (!isAdmin() && !isManager()) {
     alert("Manager or Admin access required.");
     return false;
   }
-  const r = reports.find((x) => x.id === id),
-    b = bFor(r.userId, reportFy(r)),
+  const r = reports.find((x) => x.id === id);
+  if (
+    !r ||
+    r.status !== "Submitted" ||
+    !["Manager Approved", "Rejected", "Revision Requested"].includes(status)
+  )
+    return false;
+  const b = bFor(r.userId, reportFy(r)),
     over = rawTotal(r) > b.available;
-  let c = prompt(
-    status === "Manager Approved"
-      ? over
-        ? "Over budget. Comment required:"
-        : "Approval comment:"
-      : "Comment required:",
-  );
+  let c =
+    batchComment === undefined
+      ? prompt(
+          status === "Manager Approved"
+            ? over
+              ? "Over budget. Comment required:"
+              : "Approval comment:"
+            : "Comment required:",
+        )
+      : batchComment;
+  if (c === null) return false;
+  c = c.trim();
   if ((status !== "Manager Approved" || over) && !c)
     return alert("Comment is required.");
-  await setDoc(
+  const batch = writeBatch(db);
+  batch.set(
     doc(db, "expenseReports", id),
     {
       status,
@@ -397,14 +409,10 @@ window.managerAction = async (id, status) => {
       managerComment: c || "",
       managerActionAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      ...(r.reportNo ? { reportNo: r.reportNo } : {}),
-      ...(r.runNumber ? { runNumber: r.runNumber } : {}),
-      fiscalYear: reportFy(r),
-      totalHkd: rawTotal(r),
     },
     { merge: true },
   );
-  await addDoc(collection(db, "approvalLogs"), {
+  batch.set(doc(collection(db, "approvalLogs")), {
     reportId: id,
     reportNo: reportLabel(r),
     action: status,
@@ -413,6 +421,7 @@ window.managerAction = async (id, status) => {
     comment: c || "",
     createdAt: serverTimestamp(),
   });
+  await batch.commit();
   emit("manager-action", { id, status, user: me });
   await loadData();
   return true;
@@ -424,27 +433,38 @@ window.financeAction = async (id, status) => {
     return false;
   }
   const r = reports.find((x) => x.id === id);
-  let ref = prompt(
-    status === "Reimbursed" ? "Payment reference required:" : "Finance remark:",
-  );
-  if (status === "Reimbursed" && !ref)
-    return alert("Payment reference is required.");
-  await setDoc(
+  const processing = (value) =>
+    ["Finance Processing", "Reimbursement Processing"].includes(value);
+  if (
+    !r ||
+    !(
+      (r.status === "Manager Approved" && processing(status)) ||
+      (processing(r.status) &&
+        (processing(status) || ["Reimbursed", "Closed"].includes(status)))
+    )
+  )
+    return false;
+  const paid = ["Reimbursed", "Closed"].includes(status);
+  let ref = prompt(paid ? "Payment reference required:" : "Finance remark:");
+  if (ref === null) return false;
+  ref = ref.trim();
+  if (paid && !ref) return alert("Payment reference is required.");
+  const batch = writeBatch(db);
+  batch.set(
     doc(db, "expenseReports", id),
     {
       status,
       financeStatus: status,
       financeBy: me.uid,
       financeEmail: me.email,
-      paymentReference:
-        status === "Reimbursed" ? ref : r.paymentReference || "",
+      paymentReference: paid ? ref : r.paymentReference || "",
       financeRemark: ref || "",
       financeActionAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     },
     { merge: true },
   );
-  await addDoc(collection(db, "paymentLogs"), {
+  batch.set(doc(collection(db, "paymentLogs")), {
     reportId: id,
     reportNo: reportLabel(r),
     action: status,
@@ -453,6 +473,7 @@ window.financeAction = async (id, status) => {
     reference: ref || "",
     createdAt: serverTimestamp(),
   });
+  await batch.commit();
   emit("finance-action", { id, status, user: me });
   await loadData();
   return true;
