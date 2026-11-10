@@ -2,14 +2,14 @@
 
 ## What was verified
 
-Both repository rule files were compiled and evaluated by the **real Cloud Firestore Emulator**, using the official Firebase Rules Unit Testing library. The audit performed **38 checks per ruleset, 76 operations in total**, with synthetic owner/other-user/manager/finance/admin/disabled/inactive-admin and unauthenticated contexts. Before every check, fixture data was reset using the emulator-only administrative setup context.
+Both repository rule files were compiled and evaluated by the **real Cloud Firestore Emulator**, using the official Firebase Rules Unit Testing library. The audit performed **42 checks per ruleset, 84 operations in total**, with synthetic owner/other-user/manager/finance/admin/disabled/inactive-admin and unauthenticated contexts. Before every check, fixture data was reset using the emulator-only administrative setup context.
 
 The tests used hard-coded `demo-slg-rules-*` projects and the loopback-only emulator at `127.0.0.1:8180`. No production database records or rules were changed.
 
 | Rules file | Checks matching the intended security/compatibility expectation | Findings |
 |---|---:|---:|
-| `firestore.rules` | 19 / 38 | 19 |
-| `firestore-v282.rules` | 29 / 38 | 9 |
+| `firestore.rules` | 19 / 42 | 23 |
+| `firestore-v282.rules` | 32 / 42 | 10 |
 
 These are counts of test cases, **not counts of independent vulnerabilities**. Several cases cover different consequences of the same permissive rule. A completed audit process is not an all-pass security test: the raw results explicitly mark every mismatch.
 
@@ -25,6 +25,8 @@ These are counts of test cases, **not counts of independent vulnerabilities**. S
 | Admin user provisioning | Admin cannot create another user's profile under the root file, conflicting with the app's admin provisioning action. | The tested admin profile creation succeeds. |
 | Current Finance UI compatibility | The app's legacy `Finance Processing` write succeeds. | That same write is denied; the candidate accepts `Reimbursement Processing` instead. UI actions, filters, budgets, queries and rules must be aligned before rollout. |
 
+The expanded matrix also tests combined status-and-amount updates, creation-time changes, and owner-forged approval metadata. The candidate still allows owners to inject approval/payment metadata in a Draft.
+
 Both files correctly denied the tested unauthenticated report read, unrelated-user report read, ordinary-user privileged profile creation, ordinary-user audit-log creation, and owner report deletion. The normal own-draft creation/edit and tested allowed back-office operations were also exercised. The complete per-operation results are in `RULES_AUDIT_RESULTS.json`.
 
 ## What is still unverified on the real Firebase project
@@ -33,7 +35,7 @@ The browser configuration points to **`expsense-cf0a5`**. The Firebase CLI was i
 
 As a result, this report does **not** establish which ruleset is currently published, the current Authentication provider/authorized-domain settings, the deployed database indexes, or the effective deployed Storage rules. The web API key does not provide administrative rules access. Do not treat either repository file as a verified copy of deployed rules.
 
-To finish the deployed-rules comparison, obtain the current **Firestore Database → Rules** text from the Firebase Console for `expsense-cf0a5`, or use an authenticated project-management session. Compare that exact text with these tested files and run the same matrix against it. A separate staging/UAT rollout should then verify the app and rules together before publication.
+The user has now supplied the current Rules copy. It is stored as `firestore-provided-20261110.rules` and evaluated separately in `RULES_PROVIDED_REVIEW.md` with 42 checks. This resolves the missing source-copy step, but is not an independent API/Console retrieval of the published release timestamp. A separate staging/UAT rollout should verify app and hardened Rules together before publication.
 
 ## Reproduce the local audit
 

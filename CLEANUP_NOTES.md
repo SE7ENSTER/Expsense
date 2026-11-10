@@ -48,4 +48,6 @@ The custom deployment workflow now runs those checks before its deploy job and v
 
 ## Follow-up: real Rules engine verification
 
-`FIREBASE_RULES_AUDIT.md` and `RULES_AUDIT_RESULTS.json` now record 76 operations evaluated by the actual Firestore Emulator against both repository rulesets. This is stronger than the mocked UI suite, but it still does not establish which rules are deployed. The repository file had 19 expectation mismatches; the candidate had 9. No replacement rules were published. Read that report before releasing the app/rules together.
+`FIREBASE_RULES_AUDIT.md` and `RULES_AUDIT_RESULTS.json` now record 84 operations evaluated by the actual Firestore Emulator against both repository rulesets. This is stronger than the mocked UI suite, but it still does not establish which rules are deployed. The repository file had 23 expectation mismatches; the candidate had 10. No replacement rules were published. Read that report before releasing the app/rules together.
+
+The user-supplied current Rules copy has also been evaluated separately: see `RULES_PROVIDED_REVIEW.md` (42 checks, 15 expectation mismatches). It differs from both older repository files.

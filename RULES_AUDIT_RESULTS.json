@@ -1,16 +1,16 @@
 {
-  "testedAt": "2026-11-10T04:29:26.958Z",
+  "testedAt": "2026-11-10T04:37:43.250Z",
   "scope": "Repository rule files in isolated emulator; not deployed production rules",
   "summary": {
     "firestore.rules": {
-      "checks": 38,
+      "checks": 42,
       "expectedResults": 19,
-      "findings": 19
+      "findings": 23
     },
     "firestore-v282.rules": {
-      "checks": 38,
-      "expectedResults": 29,
-      "findings": 9
+      "checks": 42,
+      "expectedResults": 32,
+      "findings": 10
     }
   },
   "results": [
@@ -153,6 +153,38 @@
     {
       "rules": "firestore.rules",
       "name": "Owner cannot change report number",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": true,
+      "matchesExpectation": false
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Owner cannot change creation time",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": true,
+      "matchesExpectation": false
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Owner cannot forge approval/payment metadata",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": true,
+      "matchesExpectation": false
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Manager cannot edit amounts while approving",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": true,
+      "matchesExpectation": false
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Finance cannot edit amounts while processing",
       "category": "security",
       "expectedAllowed": false,
       "actualAllowed": true,
@@ -457,6 +489,38 @@
     {
       "rules": "firestore-v282.rules",
       "name": "Owner cannot change report number",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore-v282.rules",
+      "name": "Owner cannot change creation time",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore-v282.rules",
+      "name": "Owner cannot forge approval/payment metadata",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": true,
+      "matchesExpectation": false
+    },
+    {
+      "rules": "firestore-v282.rules",
+      "name": "Manager cannot edit amounts while approving",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore-v282.rules",
+      "name": "Finance cannot edit amounts while processing",
       "category": "security",
       "expectedAllowed": false,
       "actualAllowed": false,

@@ -203,6 +203,41 @@ async function audit(file, label) {
       () => updateDoc(ref("owner"), { reportNo: "ER-FY2027-999999" }),
       { status: "Draft" },
     );
+    await check(
+      "Owner cannot change creation time",
+      false,
+      () => updateDoc(ref("owner"), { createdAt: Timestamp.fromMillis(9999) }),
+      { status: "Draft" },
+    );
+    await check(
+      "Owner cannot forge approval/payment metadata",
+      false,
+      () =>
+        updateDoc(ref("owner"), {
+          managerId: "manager",
+          managerStatus: "Approved",
+          paymentReference: "fake",
+        }),
+      { status: "Draft" },
+    );
+    await check("Manager cannot edit amounts while approving", false, () =>
+      updateDoc(ref("manager"), {
+        status: "Manager Approved",
+        items: [{ amount: 1, fx: 1 }],
+        totalHkd: 1,
+      }),
+    );
+    await check(
+      "Finance cannot edit amounts while processing",
+      false,
+      () =>
+        updateDoc(ref("finance"), {
+          status: "Reimbursement Processing",
+          items: [{ amount: 1, fx: 1 }],
+          totalHkd: 1,
+        }),
+      { status: "Manager Approved" },
+    );
     await check("Manager may approve Submitted", true, () =>
       updateDoc(ref("manager"), {
         status: "Manager Approved",
@@ -344,11 +379,14 @@ async function audit(file, label) {
   }
 }
 (async () => {
-  for (const [file, label] of [
-    ["firestore.rules", "repository"],
-    ["firestore-v282.rules", "candidate"],
-  ])
-    await audit(file, label);
+  const supplied = process.argv[2];
+  const files = supplied
+    ? [[supplied, "provided"]]
+    : [
+        ["firestore.rules", "repository"],
+        ["firestore-v282.rules", "candidate"],
+      ];
+  for (const [file, label] of files) await audit(file, label);
   const summary = Object.fromEntries(
     [...new Set(output.map((x) => x.rules))].map((file) => {
       const rows = output.filter((x) => x.rules === file);
@@ -363,12 +401,13 @@ async function audit(file, label) {
     }),
   );
   fs.writeFileSync(
-    "RULES_AUDIT_RESULTS.json",
+    supplied ? "RULES_PROVIDED_AUDIT_RESULTS.json" : "RULES_AUDIT_RESULTS.json",
     JSON.stringify(
       {
         testedAt: new Date().toISOString(),
-        scope:
-          "Repository rule files in isolated emulator; not deployed production rules",
+        scope: supplied
+          ? "User-provided rules evaluated in isolated emulator; no independent console verification"
+          : "Repository rule files in isolated emulator; not deployed production rules",
         summary,
         results: output,
       },
