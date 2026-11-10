@@ -1,0 +1,175 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : 'user';
+    }
+
+    function isAdmin() {
+      return myRole() == 'admin';
+    }
+
+    function isManager() {
+      return myRole() == 'manager';
+    }
+
+    function isFinance() {
+      return myRole() == 'finance';
+    }
+
+    function isBackOffice() {
+      return isAdmin() || isManager() || isFinance();
+    }
+
+    function isOwner() {
+      return resource.data.userId == request.auth.uid;
+    }
+
+    function newStatus() {
+      return request.resource.data.status;
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+        && userId == request.auth.uid
+        && request.resource.data.role == 'user';
+
+      allow read: if signedIn()
+        && (
+          userId == request.auth.uid
+          || isBackOffice()
+        );
+
+      allow update, delete: if signedIn() && isAdmin();
+    }
+
+    match /budgets/{budgetId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+
+      allow read: if signedIn()
+        && (
+          resource.data.recipientUserId == request.auth.uid
+          || resource.data.recipientRole == myRole()
+          || isAdmin()
+        );
+
+      allow update: if signedIn()
+        && (
+          resource.data.recipientUserId == request.auth.uid
+          || resource.data.recipientRole == myRole()
+          || isAdmin()
+        );
+
+      allow delete: if signedIn() && isAdmin();
+    }
+
+    match /approvalLogs/{logId} {
+      allow read: if signedIn() && isBackOffice();
+      allow create: if signedIn() && isBackOffice();
+      allow update, delete: if false;
+    }
+
+    match /paymentLogs/{logId} {
+      allow read: if signedIn() && (isAdmin() || isFinance());
+      allow create: if signedIn() && (isAdmin() || isFinance());
+      allow update, delete: if false;
+    }
+
+    match /expenseReports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status in [
+          'Draft',
+          'Submitted'
+        ];
+
+      allow read: if signedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || isAdmin()
+          || (
+            isManager()
+            && resource.data.status in [
+              'Submitted',
+              'Manager Approved',
+              'Rejected',
+              'Revision Requested',
+              'Finance Processing',
+              'Reimbursement Processing',
+              'Reimbursed',
+              'Closed'
+            ]
+          )
+          || (
+            isFinance()
+            && resource.data.status in [
+              'Manager Approved',
+              'Finance Processing',
+              'Reimbursement Processing',
+              'Reimbursed',
+              'Closed'
+            ]
+          )
+        );
+
+      allow update: if signedIn()
+        && (
+          isAdmin()
+
+          || (
+            isOwner()
+            && resource.data.status in [
+              'Draft',
+              'Revision Requested'
+            ]
+            && newStatus() in [
+              'Draft',
+              'Submitted'
+            ]
+          )
+
+          || (
+            isManager()
+            && resource.data.status == 'Submitted'
+            && newStatus() in [
+              'Manager Approved',
+              'Rejected',
+              'Revision Requested'
+            ]
+          )
+
+          || (
+            isFinance()
+            && resource.data.status in [
+              'Manager Approved',
+              'Finance Processing',
+              'Reimbursement Processing'
+            ]
+            && newStatus() in [
+              'Finance Processing',
+              'Reimbursement Processing',
+              'Reimbursed',
+              'Closed'
+            ]
+          )
+        );
+
+      allow delete: if signedIn() && isAdmin();
+    }
+  }
+}

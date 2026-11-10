@@ -3,7 +3,9 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "test:dashboard": "node --test tests/dashboard.test.cjs"
+    "test:dashboard": "node --test tests/dashboard.test.cjs",
+    "test": "node --experimental-vm-modules --test tests/dashboard.test.cjs tests/runtime.test.cjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-slg-rules-audit --config firebase.rules-test.json \"node tests/rules-release.cjs firestore.rules\""
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

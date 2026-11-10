@@ -1,0 +1,19 @@
+{
+  "createdAt": "2026-11-10",
+  "repository": "SE7ENSTER/SLG-Expense",
+  "codeBackupBranch": "backup/pre-rules-release-20261110",
+  "codeBackupCommit": "59a8a4659baa6083814645e57c9fd7ed91d63ea6",
+  "rulesCopy": {
+    "path": "backups/firestore-user-provided-20261110.rules",
+    "sha256": "f0a192ec9f06a07308f5186bf5dee5714358f21aaed93cc3ecb854b611ad6dc7",
+    "source": "User-provided Firebase Console Rules copy; not independently verified against current release"
+  },
+  "liveRulesBackup": {
+    "status": "saved before deployment",
+    "sha256": "17255b1b5fde97cf2bab7e1ce6b5ddf09ff62f54eb3b323d425cfcf1588e39be",
+    "matchesUserSuppliedIgnoringWhitespace": true,
+    "privateBackupFileId": "libfile_163048069f1c81918b3929e54f8b05cd",
+    "displayedRelease": "Jul 10, 2026 \u2022 10:59 AM"
+  },
+  "databaseExport": "NOT performed; no production documents changed"
+}
