@@ -1,71 +1,542 @@
-import { renderDashboardReports } from './report-dashboard.js';
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
-import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+import { waitForUserProfile } from "./user-registration.js";
+import { auth, db } from "./firebase-client.js";
+import { emit } from "./app-events.js";
+import { prepareReceipt } from "./receipt-files.js";
+import { renderDashboardReports } from "./report-dashboard.js";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const firebaseConfig={apiKey:'AIzaSyByUZX7ScSa__yrkmOjh9sbviKg1Qppcl4',authDomain:'expsense-cf0a5.firebaseapp.com',projectId:'expsense-cf0a5',storageBucket:'expsense-cf0a5.firebasestorage.app',messagingSenderId:'667841901219',appId:'1:667841901219:web:6c9c2226ab74885eb08516',measurementId:'G-0CFSZ757Z9'};
-const app=initializeApp(firebaseConfig);const auth=getAuth(app);const db=getFirestore(app);
-const CURRENCIES=['AUD','BDT','BND','CNY','HKD','IDR','INR','JPY','KHR','KRW','LAK','LKR','MMK','MOP','MYR','NPR','NZD','PHP','PKR','SGD','THB','TWD','VND','USD','EUR'];
-const FX={HKD:1,USD:7.85,EUR:8.5,VND:.0031,THB:.25,SGD:5.8,MYR:1.68,IDR:.0005,PHP:.134,CNY:1.08,JPY:.053,KRW:.0057,AUD:5.15,NZD:4.75,TWD:.25,MOP:.97,INR:.094,KHR:.0019,LAK:.00036,MMK:.0037,LKR:.026,BND:5.8,BDT:.071,NPR:.059,PKR:.028};
-const CATEGORIES=['Accommodation','Meal','Entertainment','Transportation','Misc.'];
-let user=null,profile={role:'user'},reports=[],adminUsers=[],current=null,rows=[];const q=id=>document.getElementById(id);const uid=()=>crypto.randomUUID();
-function money(n,c='HKD'){return `${c} ${Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`}
-function safe(v=''){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function isAdmin(){return profile.role==='admin'}function isManager(){return profile.role==='manager'}function canSeeAdmin(){return isAdmin()||isManager()}
-function blankRow(){return{id:uid(),date:'',category:'Transportation',desc:'',currency:'HKD',amount:'',fx:1,rateSource:'XE manual',note:'',receiptData:null,receiptName:''}}
-function blankReport(){return{id:uid(),status:'Draft',meta:{employee:'',company:'',purpose:'',reportCurrency:'HKD',fromDate:'',toDate:'',destination:'',costCenter:''},items:[blankRow()]}}
-function readMeta(){return{employee:q('employee').value,company:q('company').value,purpose:q('purpose').value,reportCurrency:q('reportCurrency').value,fromDate:q('fromDate').value,toDate:q('toDate').value,destination:q('destination').value,costCenter:q('costCenter').value}}
-function fillMeta(m={}){['employee','company','purpose','fromDate','toDate','destination','costCenter'].forEach(id=>q(id).value=m[id]||'');q('reportCurrency').value=m.reportCurrency||'HKD'}
-async function ensureProfile(u){const ref=doc(db,'users',u.uid);const snap=await getDoc(ref);if(!snap.exists()){await setDoc(ref,{email:u.email,role:'user',createdAt:serverTimestamp(),updatedAt:serverTimestamp()});profile={email:u.email,role:'user'}}else{profile={id:snap.id,...snap.data()}}q('userLine').innerHTML=`${u.email} <span class="pill ${profile.role}">${profile.role}</span>`;q('myRoleText')&&(q('myRoleText').textContent=profile.role);q('tab-admin').classList.toggle('hide',!canSeeAdmin());q('adminUsersCard').classList.toggle('hide',!isAdmin())}
-async function loadReports(){if(!user)return;try{let qry;if(isAdmin())qry=collection(db,'expenseReports');else if(isManager())qry=query(collection(db,'expenseReports'),where('status','in',['Submitted','Manager Approved','Rejected','Revision Requested']));else if(profile.role==='finance')qry=query(collection(db,'expenseReports'),where('status','in',['Manager Approved','Finance Processing','Reimbursement Processing','Reimbursed','Closed']));else qry=query(collection(db,'expenseReports'),where('userId','==',user.uid));const snap=await getDocs(qry);reports=snap.docs.map(d=>({...d.data(),id:d.id}));dash();adminDash()}catch(e){alert('Firestore load error: '+e.message)}}
-async function loadUsers(){if(!isAdmin()){adminUsers=[];adminDash();return}try{const snap=await getDocs(collection(db,'users'));adminUsers=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.email||'').localeCompare(b.email||''));adminDash()}catch(e){alert('User load error: '+e.message)}}
-window.signIn=async()=>{q('authMsg').textContent='Signing in...';try{await signInWithEmailAndPassword(auth,q('email').value,q('password').value)}catch(e){q('authMsg').textContent=e.message}};
-window.signUp=async()=>{q('authMsg').textContent='Creating user...';try{await createUserWithEmailAndPassword(auth,q('email').value,q('password').value)}catch(e){q('authMsg').textContent=e.message}};
-window.logout=async()=>signOut(auth);
-onAuthStateChanged(auth,async u=>{user=u;if(u){q('authView').classList.add('hide');q('appView').classList.remove('hide');q('authStatus').textContent=`Signed in as ${u.email}`;try{await ensureProfile(u)}catch(e){alert('Profile error: '+e.message)}initReportIfNeeded();await loadReports();await loadUsers();showView('dashboard')}else{reports=[];current=null;rows=[];renderDashboardReports(q('reportList'),reports);q('appView').classList.add('hide');q('authView').classList.remove('hide')}});
-window.showView=view=>{['dashboard','editor','firebase','admin'].forEach(id=>{q(id).classList.toggle('hide',id!==view);q('tab-'+id).classList.toggle('active',id===view)});if(view==='dashboard')dash();if(view==='editor')initReportIfNeeded();if(view==='admin')adminDash()};
-window.refreshAdmin=async()=>{await loadReports();await loadUsers()};
-function initReportIfNeeded(){if(!current)window.newReport(false)}
-window.newReport=(open=true)=>{current=blankReport();rows=current.items;fillMeta(current.meta);render();if(open)showView('editor')};
-window.clearForm=()=>{if(confirm('Clear this form and start blank?'))window.newReport(true)};
-window.addItem=()=>{rows.push(blankRow());render()};
-window.removeItem=id=>{if(rows.length>1)rows=rows.filter(r=>r.id!==id);render()};
-window.setVal=(id,k,v)=>{const r=rows.find(x=>x.id===id);r[k]=v;if(k==='currency'){r.fx=FX[v]||1;document.querySelectorAll('[data-fx-input]').forEach(input=>{if(input.dataset.fxInput===id)input.value=r.fx})}calc()};
-async function resizeImage(file,max=1400,quality=.78){return new Promise(res=>{const reader=new FileReader();reader.onload=e=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,max/Math.max(img.width,img.height));const canvas=document.createElement('canvas');canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);res(canvas.toDataURL('image/jpeg',quality))};img.src=e.target.result};reader.readAsDataURL(file)})}
-window.setFile=async(id,file)=>{if(!file)return;const r=rows.find(x=>x.id===id);r.receiptData=await resizeImage(file);r.receiptName=file.name;render()};
-function render(){const el=q('items');el.innerHTML='';rows.forEach((r,i)=>{const div=document.createElement('article');div.className='card item';div.innerHTML=`<div class="seq">#${i+1}</div><div class="form"><label>Date<input type="date" value="${safe(r.date)}" onchange="setVal('${r.id}','date',this.value)"></label><label>Description<input placeholder="Expense description" value="${safe(r.desc)}" onchange="setVal('${r.id}','desc',this.value)"></label><label>Category<select onchange="setVal('${r.id}','category',this.value)">${CATEGORIES.map(x=>`<option ${x===r.category?'selected':''}>${x}</option>`).join('')}</select></label><label>Currency<select onchange="setVal('${r.id}','currency',this.value)">${CURRENCIES.map(x=>`<option ${x===r.currency?'selected':''}>${x}</option>`).join('')}</select></label><label>Amount<input type="number" value="${safe(r.amount)}" oninput="setVal('${r.id}','amount',this.value)"></label><label>FX to HKD<input type="number" step="0.0001" data-fx-input="${safe(r.id)}" value="${safe(r.fx)}" oninput="setVal('${r.id}','fx',this.value)"></label><output class="fx-preview wide" data-fx-preview="${safe(r.id)}" aria-live="polite"></output><label>Rate Source<select onchange="setVal('${r.id}','rateSource',this.value)"><option ${r.rateSource==='XE manual'?'selected':''}>XE manual</option><option ${r.rateSource==='Company monthly rate'?'selected':''}>Company monthly rate</option><option ${r.rateSource==='Card statement rate'?'selected':''}>Card statement rate</option></select></label><label class="wide">Notes / Remark<textarea onchange="setVal('${r.id}','note',this.value)" placeholder="Business purpose / remark">${safe(r.note)}</textarea></label></div><div><label class="upload">Upload receipt<input type="file" accept="image/*" onchange="setFile('${r.id}',this.files[0])"></label><div class="preview">${r.receiptData?`<img src="${r.receiptData}">`:'No receipt'}</div><button class="danger full" onclick="removeItem('${r.id}')">Remove</button></div>`;el.appendChild(div)});calc()}
-function updateFxPreviews(){
-  document.querySelectorAll('[data-fx-preview]').forEach(output=>{
-    const item=rows.find(row=>row.id===output.dataset.fxPreview);
-    if(!item)return;
-    const rate=Number(item.fx),amount=Number(item.amount);
-    if(item.fx===''||!Number.isFinite(rate)||rate<=0){
-      output.textContent='Enter a valid exchange rate to see the conversion.';
+const CURRENCIES = [
+  "AUD",
+  "BDT",
+  "BND",
+  "CNY",
+  "HKD",
+  "IDR",
+  "INR",
+  "JPY",
+  "KHR",
+  "KRW",
+  "LAK",
+  "LKR",
+  "MMK",
+  "MOP",
+  "MYR",
+  "NPR",
+  "NZD",
+  "PHP",
+  "PKR",
+  "SGD",
+  "THB",
+  "TWD",
+  "VND",
+  "USD",
+  "EUR",
+];
+const FX = {
+  HKD: 1,
+  USD: 7.85,
+  EUR: 8.5,
+  VND: 0.0031,
+  THB: 0.25,
+  SGD: 5.8,
+  MYR: 1.68,
+  IDR: 0.0005,
+  PHP: 0.134,
+  CNY: 1.08,
+  JPY: 0.053,
+  KRW: 0.0057,
+  AUD: 5.15,
+  NZD: 4.75,
+  TWD: 0.25,
+  MOP: 0.97,
+  INR: 0.094,
+  KHR: 0.0019,
+  LAK: 0.00036,
+  MMK: 0.0037,
+  LKR: 0.026,
+  BND: 5.8,
+  BDT: 0.071,
+  NPR: 0.059,
+  PKR: 0.028,
+};
+const CATEGORIES = [
+  "Accommodation",
+  "Meal",
+  "Entertainment",
+  "Transportation",
+  "Misc.",
+];
+let user = null,
+  profile = { role: "user" },
+  reports = [],
+  current = null,
+  rows = [],
+  saving = false,
+  currentSaved = false,
+  sessionVersion = 0,
+  reportLoadVersion = 0;
+const pendingReceipts = new Map();
+const q = (id) => document.getElementById(id);
+const uid = () => crypto.randomUUID();
+function money(n, c = "HKD") {
+  return `${c} ${Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+function safe(v = "") {
+  return String(v).replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+  );
+}
+function isAdmin() {
+  return profile.role === "admin";
+}
+function isManager() {
+  return profile.role === "manager";
+}
+function canSeeAdmin() {
+  return ["admin", "manager", "finance"].includes(profile.role);
+}
+function blankRow() {
+  return {
+    id: uid(),
+    date: "",
+    category: "Transportation",
+    desc: "",
+    currency: "HKD",
+    amount: "",
+    fx: 1,
+    rateSource: "XE manual",
+    note: "",
+    receiptData: null,
+    receiptName: "",
+  };
+}
+function blankReport() {
+  return {
+    id: uid(),
+    status: "Draft",
+    meta: {
+      employee: "",
+      company: "",
+      purpose: "",
+      reportCurrency: "HKD",
+      fromDate: "",
+      toDate: "",
+      destination: "",
+      costCenter: "",
+    },
+    items: [blankRow()],
+  };
+}
+function readMeta() {
+  return {
+    employee: q("employee").value,
+    company: q("company").value,
+    purpose: q("purpose").value,
+    reportCurrency: q("reportCurrency").value,
+    fromDate: q("fromDate").value,
+    toDate: q("toDate").value,
+    destination: q("destination").value,
+    costCenter: q("costCenter").value,
+  };
+}
+function fillMeta(m = {}) {
+  [
+    "employee",
+    "company",
+    "purpose",
+    "fromDate",
+    "toDate",
+    "destination",
+    "costCenter",
+  ].forEach((id) => (q(id).value = m[id] || ""));
+  q("reportCurrency").value = m.reportCurrency || "HKD";
+}
+async function ensureProfile(u) {
+  const ref = doc(db, "users", u.uid),
+    snap = await getDoc(ref);
+  if (snap.exists()) return { ...snap.data(), id: snap.id };
+  const data = {
+    email: u.email,
+    role: "user",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(ref, data);
+  return data;
+}
+function showProfile() {
+  q("userLine").textContent = `${user.email} · ${profile.role}`;
+  q("myRoleText").textContent = profile.role;
+  q("tab-admin").classList.toggle("hide", !canSeeAdmin());
+  q("adminUsersCard").classList.toggle("hide", !isAdmin());
+}
+
+async function loadReports() {
+  if (!user) return;
+  try {
+    let qry;
+    if (isAdmin()) qry = collection(db, "expenseReports");
+    else if (isManager())
+      qry = query(
+        collection(db, "expenseReports"),
+        where("status", "in", [
+          "Submitted",
+          "Manager Approved",
+          "Rejected",
+          "Revision Requested",
+        ]),
+      );
+    else if (profile.role === "finance")
+      qry = query(
+        collection(db, "expenseReports"),
+        where("status", "in", [
+          "Manager Approved",
+          "Finance Processing",
+          "Reimbursement Processing",
+          "Reimbursed",
+          "Closed",
+        ]),
+      );
+    else
+      qry = query(
+        collection(db, "expenseReports"),
+        where("userId", "==", user.uid),
+      );
+    const version = sessionVersion,
+      request = ++reportLoadVersion;
+    const snap = await getDocs(qry);
+    if (version !== sessionVersion || request !== reportLoadVersion)
+      return reports;
+    reports = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+    dash();
+    emit("reports-loaded", { reports, user, profile });
+    return reports;
+  } catch (e) {
+    alert("Firestore load error: " + e.message);
+  }
+}
+window.signIn = async () => {
+  q("authMsg").textContent = "Signing in...";
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      q("email").value,
+      q("password").value,
+    );
+  } catch (e) {
+    q("authMsg").textContent = e.message;
+  }
+};
+window.signUp = () => emit("registration-requested");
+window.logout = async () => signOut(auth);
+onAuthStateChanged(auth, async (u) => {
+  const version = ++sessionVersion;
+  user = u;
+  profile = { role: "user" };
+  reports = [];
+  current = null;
+  rows = [];
+  currentSaved = false;
+  renderDashboardReports(q("reportList"), reports);
+  emit("session", { user: null, profile: { role: "user" } });
+  q("appView").classList.add("hide");
+  if (!u) {
+    q("appView").classList.add("hide");
+    q("authView").classList.remove("hide");
+    return;
+  }
+  try {
+    await waitForUserProfile();
+    const loadedProfile = await ensureProfile(u);
+    if (version !== sessionVersion) return;
+    profile = loadedProfile;
+    showProfile();
+    if (profile.active === false || profile.role === "disabled") {
+      await signOut(auth);
       return;
     }
-    const rateText=rate.toLocaleString('en-US',{maximumFractionDigits:12});
-    const rateLabel=`1 ${item.currency} = ${rateText} HKD`;
-    const converted=amount*rate;
-    output.textContent=item.amount===''||!Number.isFinite(amount)||!Number.isFinite(converted)
-      ?rateLabel
-      :`${rateLabel} · ${amount.toLocaleString('en-US',{maximumFractionDigits:6})} ${item.currency} = ${converted.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} HKD`;
+    emit("session", { user: u, profile });
+    q("authView").classList.add("hide");
+    q("appView").classList.remove("hide");
+    q("authStatus").textContent = `Signed in as ${u.email}`;
+    initReportIfNeeded();
+    await loadReports();
+    if (version === sessionVersion) window.showView("dashboard");
+  } catch (error) {
+    if (version === sessionVersion) await signOut(auth);
+    q("authMsg").textContent = error.message;
+  }
+});
+window.showView = (view) => {
+  ["dashboard", "editor", "firebase", "admin"].forEach((id) => {
+    q(id).classList.toggle("hide", id !== view);
+    q("tab-" + id).classList.toggle("active", id === view);
+  });
+  if (view === "dashboard") dash();
+  if (view === "editor") initReportIfNeeded();
+  emit("view-changed", { view });
+};
+function initReportIfNeeded() {
+  if (!current) window.newReport(false);
+}
+window.newReport = (open = true) => {
+  current = blankReport();
+  currentSaved = false;
+  rows = current.items;
+  fillMeta(current.meta);
+  render();
+  emit("report-new");
+  if (open) window.showView("editor");
+};
+window.clearForm = () => {
+  if (confirm("Clear this form and start blank?")) window.newReport(true);
+};
+window.addItem = () => {
+  rows.push(blankRow());
+  render();
+};
+window.removeItem = (id) => {
+  if (rows.length > 1) rows = rows.filter((r) => r.id !== id);
+  render();
+};
+window.setVal = (id, k, v) => {
+  const r = rows.find((x) => x.id === id);
+  r[k] = v;
+  if (k === "currency") {
+    r.fx = FX[v] || 1;
+    document.querySelectorAll("[data-fx-input]").forEach((input) => {
+      if (input.dataset.fxInput === id) input.value = r.fx;
+    });
+  }
+  window.calc();
+};
+async function resizeImage(file, max = 1400, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Cannot read the receipt file."));
+    reader.onload = (event) => {
+      const image = new Image();
+      image.onerror = () =>
+        reject(new Error("Cannot open this receipt image."));
+      image.onload = () => {
+        try {
+          const scale = Math.min(1, max / Math.max(image.width, image.height)),
+            canvas = document.createElement("canvas");
+          canvas.width = Math.round(image.width * scale);
+          canvas.height = Math.round(image.height * scale);
+          canvas
+            .getContext("2d")
+            .drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
-window.calc=function(){updateFxPreviews();const rc=q('reportCurrency').value||'HKD';const total=rows.reduce((s,r)=>s+(+r.amount||0)*(+r.fx||0),0);const attached=rows.filter(r=>r.receiptData).length;const used=[...new Set(rows.map(r=>r.currency).filter(Boolean))];q('totalHero').textContent=money(total,rc);q('sideTotal').textContent=money(total,rc);q('receiptHero').textContent=`${attached} receipt attached`;q('itemTotal').textContent=`Items: ${rows.length}`;q('receiptText').textContent=`${attached} of ${rows.length} attached`;q('receiptBar').style.width=(rows.length?attached/rows.length*100:0)+'%';q('currencyUsed').innerHTML=used.map(c=>`<span class="pill">${c}</span>`).join('')};
-window.saveReport=async(status='Draft')=>{if(!user)return alert('Please sign in first.');current=current||blankReport();if(current.userId&&current.userId!==user.uid&&!isAdmin())return alert('Only Admin can update another user report.');current.meta=readMeta();current.items=rows;current.status=status;current.userId=current.userId||user.uid;current.userEmail=current.userEmail||user.email;current.updatedAt=serverTimestamp();current.createdAt=current.createdAt||serverTimestamp();try{if(reports.some(r=>r.id===current.id)){await setDoc(doc(db,'expenseReports',current.id),current,{merge:true})}else{const ref=await addDoc(collection(db,'expenseReports'),current);current.id=ref.id}await loadReports();alert(status==='Submitted'?'Report submitted.':'Draft saved.')}catch(e){alert('Save error: '+e.message)}};
-window.openReport=id=>{const found=reports.find(r=>r.id===id);current=structuredClone(found);rows=current.items||[blankRow()];fillMeta(current.meta||{});render();showView('editor')};
-function dash(){
-  q('kReports').textContent=reports.length;
-  q('kDraft').textContent=reports.filter(r=>r.status==='Draft').length;
-  q('kSubmitted').textContent=reports.filter(r=>r.status==='Submitted').length;
-  q('kReceipts').textContent=reports.reduce((sum,r)=>sum+(r.items||[]).filter(i=>i.receiptData).length,0);
-  q('reportTitle').textContent=isAdmin()?'Current Reports':isManager()?'Submitted Reports':'My Active Reports';
-  q('reportSubtitle').textContent='Sorted by report number (ascending).';
-  renderDashboardReports(q('reportList'),reports);
+window.setFile = async (id, file) => {
+  if (!file) return;
+  const reportId = current?.id,
+    item = rows.find((row) => row.id === id);
+  if (!item) return;
+  const key = reportId + ":" + id,
+    token = {};
+  pendingReceipts.set(key, token);
+  try {
+    const prepared = await prepareReceipt(file);
+    const image = await resizeImage(prepared.file);
+    if (
+      current?.id !== reportId ||
+      !rows.includes(item) ||
+      pendingReceipts.get(key) !== token
+    )
+      return;
+    Object.assign(item, prepared.metadata, { receiptData: image });
+    render();
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    if (pendingReceipts.get(key) === token) pendingReceipts.delete(key);
+  }
+};
+function render() {
+  const el = q("items");
+  el.innerHTML = "";
+  rows.forEach((r, i) => {
+    const div = document.createElement("article");
+    div.className = "card item";
+    div.innerHTML = `<div class="seq">#${i + 1}</div><div class="form"><label>Date<input type="date" value="${safe(r.date)}" onchange="setVal('${r.id}','date',this.value)"></label><label>Description<input placeholder="Expense description" value="${safe(r.desc)}" onchange="setVal('${r.id}','desc',this.value)"></label><label>Category<select onchange="setVal('${r.id}','category',this.value)">${CATEGORIES.map((x) => `<option ${x === r.category ? "selected" : ""}>${x}</option>`).join("")}</select></label><label>Currency<select onchange="setVal('${r.id}','currency',this.value)">${CURRENCIES.map((x) => `<option ${x === r.currency ? "selected" : ""}>${x}</option>`).join("")}</select></label><label>Amount<input type="number" value="${safe(r.amount)}" oninput="setVal('${r.id}','amount',this.value)"></label><label>FX to HKD<input type="number" step="0.0001" data-fx-input="${safe(r.id)}" value="${safe(r.fx)}" oninput="setVal('${r.id}','fx',this.value)"></label><output class="fx-preview wide" data-fx-preview="${safe(r.id)}" aria-live="polite"></output><label>Rate Source<select onchange="setVal('${r.id}','rateSource',this.value)"><option ${r.rateSource === "XE manual" ? "selected" : ""}>XE manual</option><option ${r.rateSource === "Company monthly rate" ? "selected" : ""}>Company monthly rate</option><option ${r.rateSource === "Card statement rate" ? "selected" : ""}>Card statement rate</option></select></label><label class="wide">Notes / Remark<textarea onchange="setVal('${r.id}','note',this.value)" placeholder="Business purpose / remark">${safe(r.note)}</textarea></label></div><div><label class="upload">Upload receipt / supporting document<input type="file" accept="image/*,application/pdf,.pdf" onchange="setFile('${r.id}',this.files[0])"></label><div class="preview">${r.receiptData ? `<img src="${r.receiptData}">` : "No receipt"}</div><div class="phase1-note">Images and PDF files supported. PDF max 500 KB.</div><button class="danger full" onclick="removeItem('${r.id}')">Remove</button></div>`;
+    el.appendChild(div);
+  });
+  window.calc();
 }
-window.refreshDashboardReports=loadReports;
+function updateFxPreviews() {
+  document.querySelectorAll("[data-fx-preview]").forEach((output) => {
+    const item = rows.find((row) => row.id === output.dataset.fxPreview);
+    if (!item) return;
+    const rate = Number(item.fx),
+      amount = Number(item.amount);
+    if (item.fx === "" || !Number.isFinite(rate) || rate <= 0) {
+      output.textContent = "Enter a valid exchange rate to see the conversion.";
+      return;
+    }
+    const rateText = rate.toLocaleString("en-US", {
+      maximumFractionDigits: 12,
+    });
+    const rateLabel = `1 ${item.currency} = ${rateText} HKD`;
+    const converted = amount * rate;
+    output.textContent =
+      item.amount === "" ||
+      !Number.isFinite(amount) ||
+      !Number.isFinite(converted)
+        ? rateLabel
+        : `${rateLabel} · ${amount.toLocaleString("en-US", { maximumFractionDigits: 6 })} ${item.currency} = ${converted.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD`;
+  });
+}
+window.calc = function () {
+  updateFxPreviews();
+  const rc = q("reportCurrency").value || "HKD";
+  const total = rows.reduce((s, r) => s + (+r.amount || 0) * (+r.fx || 0), 0);
+  const attached = rows.filter((r) => r.receiptData).length;
+  const used = [...new Set(rows.map((r) => r.currency).filter(Boolean))];
+  q("totalHero").textContent = money(total, rc);
+  q("sideTotal").textContent = money(total, rc);
+  q("receiptHero").textContent = `${attached} receipt attached`;
+  q("itemTotal").textContent = `Items: ${rows.length}`;
+  q("receiptText").textContent = `${attached} of ${rows.length} attached`;
+  q("receiptBar").style.width =
+    (rows.length ? (attached / rows.length) * 100 : 0) + "%";
+  q("currencyUsed").innerHTML = used
+    .map((c) => `<span class="pill">${c}</span>`)
+    .join("");
+};
+window.saveReport = async (status = "Draft") => {
+  if (saving) return false;
+  if (
+    [...pendingReceipts.keys()].some((key) => key.startsWith(current?.id + ":"))
+  ) {
+    alert("Please wait for the receipt upload to finish.");
+    return false;
+  }
+  if (!user) {
+    alert("Please sign in first.");
+    return false;
+  }
+  if (current?.userId && current.userId !== user.uid && !isAdmin()) {
+    alert("Only Admin can update another user report.");
+    return false;
+  }
+  saving = true;
+  const version = sessionVersion,
+    report = current || blankReport(),
+    wasSaved = currentSaved;
+  try {
+    const data = {
+      ...report,
+      meta: readMeta(),
+      items: structuredClone(rows),
+      totalHkd: rows.reduce(
+        (sum, item) =>
+          sum + (Number(item.amount) || 0) * (Number(item.fx) || 0),
+        0,
+      ),
+      status,
+      userId: report.userId || user.uid,
+      userEmail: report.userEmail || user.email,
+      updatedAt: serverTimestamp(),
+    };
+    if (wasSaved) delete data.createdAt;
+    else data.createdAt = serverTimestamp();
+    await setDoc(doc(db, "expenseReports", report.id), data, { merge: true });
+    if (version !== sessionVersion) return true;
+    if (current === report || !current) {
+      current = { ...report, ...data };
+      currentSaved = true;
+    }
+    await loadReports();
+    const saved = reports.find((item) => item.id === report.id) || {
+      ...report,
+      ...data,
+    };
+    if (current?.id === report.id) current = saved;
+    emit("report-saved", { report: saved, status, user });
+    alert(status === "Submitted" ? "Report submitted." : "Draft saved.");
+    return true;
+  } catch (error) {
+    alert("Save error: " + error.message);
+    return false;
+  } finally {
+    saving = false;
+  }
+};
+window.getReportById = async (id) => {
+  const cached = reports.find((report) => report.id === id);
+  if (cached) return cached;
+  const snapshot = await getDoc(doc(db, "expenseReports", id));
+  return snapshot.exists() ? { ...snapshot.data(), id: snapshot.id } : null;
+};
+window.openReport = async (id) => {
+  const version = sessionVersion;
+  try {
+    const found = await window.getReportById(id);
+    if (version !== sessionVersion) return false;
+    if (!found) {
+      alert("Report not found. Please refresh and try again.");
+      return false;
+    }
+    current = structuredClone(found);
+    currentSaved = true;
+    rows = current.items || [blankRow()];
+    fillMeta(current.meta || {});
+    render();
+    window.showView("editor");
+    emit("report-opened", { report: current });
+    return true;
+  } catch (error) {
+    alert("Cannot open report: " + error.message);
+    return false;
+  }
+};
+function dash() {
+  q("kReports").textContent = reports.length;
+  q("kDraft").textContent = reports.filter((r) => r.status === "Draft").length;
+  q("kSubmitted").textContent = reports.filter(
+    (r) => r.status === "Submitted",
+  ).length;
+  q("kReceipts").textContent = reports.reduce(
+    (sum, r) => sum + (r.items || []).filter((i) => i.receiptData).length,
+    0,
+  );
+  q("reportTitle").textContent = isAdmin()
+    ? "Current Reports"
+    : isManager()
+      ? "Submitted Reports"
+      : "My Active Reports";
+  q("reportSubtitle").textContent = "Sorted by report number (ascending).";
+  renderDashboardReports(q("reportList"), reports);
+}
+window.refreshDashboardReports = loadReports;
 
-function adminDash(){if(!q('adminUsers'))return;q('myRoleText').textContent=profile.role;q('adminUserCount').textContent=adminUsers.length;q('adminSubmittedCount').textContent=reports.filter(r=>r.status==='Submitted').length;q('adminScopeText').textContent=isAdmin()?'Admin can manage users and view all reports.':isManager()?'Manager can view submitted reports from all users.':'User access only.';q('adminUsers').innerHTML=adminUsers.map(u=>`<tr><td>${safe(u.email||u.id)}</td><td><span class="pill ${u.role||'user'}">${u.role||'user'}</span></td><td>${u.updatedAt?.seconds?new Date(u.updatedAt.seconds*1000).toLocaleString():'-'}</td><td><div class="inline-actions"><select class="role-select" id="role-${u.id}"><option ${u.role==='user'?'selected':''}>user</option><option ${u.role==='manager'?'selected':''}>manager</option><option ${u.role==='admin'?'selected':''}>admin</option></select><button class="secondary" onclick="setUserRole('${u.id}')">Save</button></div></td></tr>`).join('')||'<tr><td colspan="4">No users found.</td></tr>';q('adminReports').innerHTML=reports.filter(r=>isAdmin()||r.status==='Submitted').map(r=>{const m=r.meta||{};const total=(r.items||[]).reduce((s,i)=>s+(+i.amount||0)*(+i.fx||0),0);return `<tr onclick="openReport('${r.id}')"><td>${safe(m.employee||'-')}</td><td>${safe(m.purpose||'-')}</td><td><span class="pill ${r.status==='Submitted'?'submitted':''}">${r.status}</span></td><td>${safe(r.userEmail||'-')}</td><td>${money(total,m.reportCurrency||'HKD')}</td></tr>`}).join('')||'<tr><td colspan="5">No submitted reports found.</td></tr>'}
-window.setUserRole=async(uid)=>{if(!isAdmin())return alert('Admin only.');const nextRole=q('role-'+uid).value;try{await setDoc(doc(db,'users',uid),{role:nextRole,updatedAt:serverTimestamp()},{merge:true});await loadUsers();alert('Role updated.')}catch(e){alert('Role update error: '+e.message)}};
-window.exportPdf=async()=>{const{jsPDF}=window.jspdf;const m=readMeta();const rc=m.reportCurrency||'HKD';const pdf=new jsPDF('p','mm','a4');let y=14;const total=rows.reduce((s,r)=>s+(+r.amount||0)*(+r.fx||0),0);pdf.setFont('helvetica','bold');pdf.setFontSize(18);pdf.text('Travel Expense Report',14,y);pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.text(`Employee: ${m.employee||'-'}`,14,y+10);pdf.text(`Company: ${m.company||'-'}`,14,y+17);pdf.text(`Purpose: ${m.purpose||'-'}`,14,y+24);pdf.text(`Travel Period: ${m.fromDate||'-'} to ${m.toDate||'-'}`,104,y+10);pdf.text(`Destination: ${m.destination||'-'}`,104,y+17);pdf.text(`Cost Center: ${m.costCenter||'-'}`,104,y+24);pdf.setFont('helvetica','bold');pdf.text(`Total Claim: ${money(total,rc)}`,104,y+31);y=52;pdf.setFillColor(244,247,251);pdf.rect(14,y-6,182,8,'F');['#','Date','Description','Cat.','Cur','Amt','HKD','Note'].forEach((h,i)=>pdf.text(h,[16,25,45,92,112,125,148,168][i],y));pdf.setFont('helvetica','normal');y+=8;rows.forEach((r,i)=>{if(y>270){pdf.addPage();y=18}const hkd=(+r.amount||0)*(+r.fx||0);pdf.text(String(i+1),16,y);pdf.text(r.date||'-',25,y);pdf.text((r.desc||'-').slice(0,24),45,y);pdf.text(r.category.slice(0,8),92,y);pdf.text(r.currency,112,y);pdf.text(String(r.amount||0),125,y);pdf.text(hkd.toFixed(2),148,y);pdf.text((r.note||'').slice(0,20),168,y);y+=7});pdf.addPage();pdf.setFont('helvetica','bold');pdf.setFontSize(15);pdf.text('Receipt Attachment',14,16);let yy=28;rows.forEach((r,i)=>{if(yy>235){pdf.addPage();yy=18}pdf.setFillColor(248,221,224);pdf.rect(14,yy,182,16,'F');pdf.setFont('helvetica','bold');pdf.setFontSize(10);pdf.text(`${i+1}. ${(r.desc||'Expense item').slice(0,70)}`,17,yy+6);pdf.setFont('helvetica','normal');pdf.text(`${r.currency} ${r.amount||0} | ${((+r.amount||0)*(+r.fx||0)).toFixed(2)} HKD | ${r.rateSource||'XE manual'}`,17,yy+12);yy+=21;if(r.receiptData){try{pdf.addImage(r.receiptData,'JPEG',17,yy,92,78);yy+=85}catch(e){pdf.text('Receipt attached: '+(r.receiptName||'image'),17,yy);yy+=10}}else{pdf.text('No receipt uploaded',17,yy);yy+=10}});pdf.save('expense-report-with-receipts.pdf')};
-function init(){CURRENCIES.forEach(c=>q('reportCurrency').add(new Option(c,c)));window.newReport(false)}init();
+function init() {
+  CURRENCIES.forEach((c) => q("reportCurrency").add(new Option(c, c)));
+  window.newReport(false);
+}
+init();

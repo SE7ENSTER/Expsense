@@ -1,28 +1,50 @@
-name: Deploy SLG Expense
+name: Verify and Deploy SLG Expense
 
 on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - '.github/workflows/deploy.yml'
+      ["docs/**", "tests/**", "package.json", ".github/workflows/deploy.yml"]
+  pull_request:
+    paths:
+      ["docs/**", "tests/**", "package.json", ".github/workflows/deploy.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: slg-expense-${{ github.event.pull_request.number || 'production' }}
   cancel-in-progress: false
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install isolated test dependency
+        run: npm install --prefix "$RUNNER_TEMP/slg-tests" --no-save --package-lock=false --ignore-scripts linkedom@0.18.12
+      - name: Verify production imports, syntax, and assets
+        run: node tests/check-production.cjs
+      - name: Run dashboard and production-module integration tests
+        env:
+          NODE_PATH: ${{ runner.temp }}/slg-tests/node_modules
+        run: npm test
+
   deploy:
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5

@@ -65,27 +65,8 @@ test('user strings are escaped and a cleared list removes old rows',()=>{
 test('management no longer writes dashboard HTML or allocates numbers during reads',()=>{
  const management=fs.readFileSync('docs/management-v2.js','utf8');
  assert.doesNotMatch(management,/function renderDashboard\(|assignReportNumbers|setInterval\([^\n]*renderAll/);
- assert.match(management,/await window\.refreshDashboardReports\?\.\(\);renderAll\(\)/);
+ assert.match(management,/await window\.refreshDashboardReports\?\.\(\)/);
  const core=fs.readFileSync('docs/firebase-app.js','utf8');assert.doesNotMatch(core,/sort\(\(a,b\)=>\(b.updatedAt/);
-});
-test('core saves a second edit to the existing Firestore document even if stored id was a client UUID',async()=>{
- const {window,document}=parseHTML(fs.readFileSync('docs/index.html','utf8'));
- const records=new Map(),writes=[];let counter=0;
- const collection=(_,name)=>({kind:'collection',name});
- const context=vm.createContext({window,document,console,crypto:require('node:crypto').webcrypto,structuredClone,alert:()=>{},confirm:()=>true,
-  initializeApp:()=>({}),getAuth:()=>({}),getFirestore:()=>({}),onAuthStateChanged:()=>{},
-  collection,query:(ref,...conditions)=>({...ref,conditions}),where:(...args)=>args,doc:(_,name,id)=>({name,id}),serverTimestamp:()=>({seconds:1}),
-  getDocs:async ref=>({docs:[...records.entries()].map(([id,data])=>({id,data:()=>structuredClone(data)}))}),
-  addDoc:async(ref,data)=>{const id='doc-'+(++counter);records.set(id,structuredClone(data));writes.push(['add',id]);return{id}},
-  setDoc:async(ref,data)=>{records.set(ref.id,{...records.get(ref.id),...structuredClone(data)});writes.push(['set',ref.id])}
- });
- vm.runInContext('(function(){'+source.replaceAll('export ','')+';globalThis.renderDashboardReports=renderDashboardReports;})()',context);
- let core=fs.readFileSync('docs/firebase-app.js','utf8').replace(/^import .*;\n/gm,'').replace(/init\(\);\s*$/,'');
- vm.runInContext(core,context);
- vm.runInContext("user={uid:'u',email:'u@example.com'};current=blankReport();rows=current.items",context);
- await window.saveReport('Draft');await window.saveReport('Draft');
- assert.deepEqual(writes,[['add','doc-1'],['set','doc-1']]);assert.equal(records.size,1);
- assert.equal(document.querySelector('.report-card').dataset.reportId,'doc-1');
 });
 test('observer updates the table as data arrives without waiting for legacy refresh timers',async()=>{
  const f=fixture();f.render([report('a','ER-FY2027-1')]);

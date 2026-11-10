@@ -3,7 +3,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "test:dashboard": "node --test tests/dashboard.test.cjs"
+    "test:dashboard": "node --test tests/dashboard.test.cjs",
+    "test": "node --experimental-vm-modules --test tests/dashboard.test.cjs tests/runtime.test.cjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
