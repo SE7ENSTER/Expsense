@@ -539,6 +539,59 @@ async function audit(file, label) {
         }
       },
     );
+    await check(
+      "Legacy timestamp map can be approved without expense edits",
+      true,
+      async () => {
+        await env.withSecurityRulesDisabled((c) =>
+          updateDoc(doc(c.firestore(), "expenseReports", "target"), {
+            createdAt: { seconds: 1000, nanoseconds: 0 },
+          }),
+        );
+        return updateDoc(ref("manager"), {
+          status: "Manager Approved",
+          managerId: "manager",
+        });
+      },
+    );
+    await check(
+      "Owner cannot change legacy timestamp map",
+      false,
+      async () => {
+        await env.withSecurityRulesDisabled((c) =>
+          updateDoc(doc(c.firestore(), "expenseReports", "target"), {
+            createdAt: { seconds: 1000, nanoseconds: 0 },
+          }),
+        );
+        return updateDoc(ref("owner"), {
+          createdAt: { seconds: 2000, nanoseconds: 0 },
+        });
+      },
+      { status: "Draft" },
+    );
+    await check("New report cannot spoof legacy timestamp map", false, () =>
+      setDoc(ref("owner", "expenseReports", "new"), {
+        ...newReport("Draft"),
+        createdAt: { seconds: 1000, nanoseconds: 0 },
+      }),
+    );
+    await check(
+      "Owner can add missing total when saving a legacy Draft",
+      true,
+      async () => {
+        await env.withSecurityRulesDisabled(async (c) => {
+          const data = base("Draft");
+          delete data.totalHkd;
+          await setDoc(doc(c.firestore(), "expenseReports", "target"), data);
+        });
+        return updateDoc(ref("owner"), {
+          totalHkd: 50,
+          fiscalYear: "FY2027",
+          status: "Submitted",
+        });
+      },
+      { status: "Draft" },
+    );
     await check("Owner cannot delete reports", false, () =>
       deleteDoc(ref("owner")),
     );

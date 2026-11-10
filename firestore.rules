@@ -25,9 +25,17 @@ service cloud.firestore {
     function processing(status) {
       return status in ['Finance Processing','Reimbursement Processing'];
     }
+    function validCreatedAt(value) {
+      // Old client copies serialized Firestore Timestamp into an immutable map.
+      // New documents still require request.time in the create rule below.
+      return value is timestamp || (value is map
+        && value.keys().hasOnly(['seconds','nanoseconds'])
+        && value.seconds is int && value.nanoseconds is int
+        && value.nanoseconds >= 0 && value.nanoseconds < 1000000000);
+    }
     function validReport(data) {
       return data.userId is string
-        && data.createdAt is timestamp
+        && validCreatedAt(data.createdAt)
         && data.meta is map && data.items is list
         && data.totalHkd is number && data.totalHkd >= 0
         && data.status in ['Draft','Submitted','Manager Approved','Rejected',

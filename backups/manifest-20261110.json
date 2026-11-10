@@ -8,6 +8,12 @@
     "sha256": "f0a192ec9f06a07308f5186bf5dee5714358f21aaed93cc3ecb854b611ad6dc7",
     "source": "User-provided Firebase Console Rules copy; not independently verified against current release"
   },
-  "liveRulesBackup": "PENDING Firebase management authentication",
+  "liveRulesBackup": {
+    "status": "saved before deployment",
+    "sha256": "17255b1b5fde97cf2bab7e1ce6b5ddf09ff62f54eb3b323d425cfcf1588e39be",
+    "matchesUserSuppliedIgnoringWhitespace": true,
+    "privateBackupFileId": "libfile_163048069f1c81918b3929e54f8b05cd",
+    "displayedRelease": "Jul 10, 2026 \u2022 10:59 AM"
+  },
   "databaseExport": "NOT performed; no production documents changed"
 }

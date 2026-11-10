@@ -1,10 +1,10 @@
 {
-  "testedAt": "2026-11-10T04:58:38.080Z",
+  "testedAt": "2026-11-10T05:35:34.563Z",
   "scope": "Release candidate evaluated in isolated emulator; live data and deployed rules not independently verified",
   "summary": {
     "firestore.rules": {
-      "checks": 54,
-      "expectedResults": 54,
+      "checks": 58,
+      "expectedResults": 58,
       "findings": 0
     }
   },
@@ -415,6 +415,38 @@
       "category": "security",
       "expectedAllowed": false,
       "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Legacy timestamp map can be approved without expense edits",
+      "category": "security",
+      "expectedAllowed": true,
+      "actualAllowed": true,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Owner cannot change legacy timestamp map",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "New report cannot spoof legacy timestamp map",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Owner can add missing total when saving a legacy Draft",
+      "category": "security",
+      "expectedAllowed": true,
+      "actualAllowed": true,
       "matchesExpectation": true
     },
     {
