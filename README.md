@@ -1,4 +1,4 @@
-# ExpenseFlow
+# SLG Expense
 
 A modern web app draft for travel expense reports.
 

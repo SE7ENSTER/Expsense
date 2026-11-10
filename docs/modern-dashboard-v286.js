@@ -1,4 +1,4 @@
-/* ExpenseFlow modern dashboard layout - staging only */
+/* SLG Expense modern dashboard layout - staging only */
 (function(){
   const $=id=>document.getElementById(id);
   let detailTimer=null;
@@ -9,7 +9,7 @@
     document.body.classList.add('ef-modern');
     if($('efSideNav'))return;
     const nav=document.createElement('aside');nav.id='efSideNav';nav.className='ef-side-nav';
-    nav.innerHTML=`<div class="ef-brand">Expense<span>Flow</span></div><div class="ef-menu"><button data-view="dashboard" class="active">⌂ Dashboard</button><button data-view="editor">＋ Create Expense Report</button><button data-view="admin">▦ Management Portal</button><button data-view="dashboard" data-history-jump="1">◷ History</button><button data-view="firebase">⚙ Settings</button></div><div class="ef-help"><strong>Need help?</strong><br>Visit the Help Center or contact support.</div>`;
+    nav.innerHTML=`<div class="ef-brand">SLG <span>Expense</span></div><div class="ef-menu"><button data-view="dashboard" class="active">⌂ Dashboard</button><button data-view="editor">＋ Create Expense Report</button><button data-view="admin">▦ Management Portal</button><button data-view="dashboard" data-history-jump="1">◷ History</button><button data-view="firebase">⚙ Settings</button></div><div class="ef-help"><strong>Need help?</strong><br>Visit the Help Center or contact support.</div>`;
     document.body.appendChild(nav);
     nav.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>{
       const view=btn.dataset.view;
@@ -55,5 +55,5 @@
   function attachReportObserver(){const wrap=$('reportTableWrap');if(wrap&&!wrap.__efObserved){wrap.__efObserved=true;reportWrapObserver.observe(wrap,{childList:true,subtree:true})}}
   setInterval(()=>{refresh();attachReportObserver()},1500);
   setTimeout(()=>{refresh();attachReportObserver()},1800);
-  console.log('ExpenseFlow modern dashboard v0.28.7 safe active');
+  console.log('SLG Expense modern dashboard v0.28.7 safe active');
 })();
