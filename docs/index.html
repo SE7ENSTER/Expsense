@@ -6,7 +6,7 @@
   <title>SLG Expense v0.28.1</title>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=281" />
+  <link rel="stylesheet" href="./styles.css?v=dashboard-order-1" />
   <link rel="stylesheet" href="./ux-hybrid.css?v=281" />
   <link rel="stylesheet" href="./ui-hotfix-v18.css?v=281" />
   <link rel="stylesheet" href="./admin-user-management.css?v=281" />
@@ -21,7 +21,7 @@
 <body>
   <section id="authView" class="login">
     <div class="login-card">
-      <div class="logo">SLG <span>Expense</span></div>
+      <div class="logo brand-lockup"><img class="brand-logo" src="./assets/suisseland-group.png" alt="Suisseland Group" width="170" height="55"><span class="brand-app-name">SLG Expense</span></div>
       <h1>Sign in</h1>
       <p>SLG Expense v0.28.1. Sign in with your company email or register a new user account.</p>
       <label>Company Email<input id="email" type="email" placeholder="name@company.com" autocomplete="email"></label>
@@ -36,7 +36,7 @@
 
   <section id="appView" class="hide">
     <header class="top">
-      <div><div class="logo">SLG <span>Expense</span></div><div id="userLine" class="small muted"></div></div>
+      <div><div class="logo brand-lockup"><img class="brand-logo" src="./assets/suisseland-group.png" alt="Suisseland Group" width="170" height="55"><span class="brand-app-name">SLG Expense</span></div><div id="userLine" class="small muted"></div></div>
       <div class="top-actions">
         <button class="secondary" onclick="showView('dashboard')">User Portal</button>
         <button class="secondary" onclick="newReport()">New Report</button>
@@ -77,7 +77,7 @@
           <div><h2 id="reportTitle">My Reports</h2><p id="reportSubtitle">Loaded from Firestore for the signed-in user.</p></div>
           <button onclick="newReport()">+ Create Report</button>
         </div>
-        <div id="reportList" class="report-list"></div>
+        <div id="reportList" class="report-list" aria-busy="true"></div>
       </section>
 
       <section id="editor" class="hide">
@@ -138,8 +138,8 @@
     </main>
   </section>
   <script src="./interval-guard-v21.js?v=281"></script>
-  <script type="module" src="./firebase-app.js?v=281"></script>
-  <script type="module" src="./management-v2.js?v=281"></script>
+  <script type="module" src="./firebase-app.js?v=dashboard-order-1"></script>
+  <script type="module" src="./management-v2.js?v=dashboard-order-1"></script>
   <script type="module" src="./register-profile.js?v=281"></script>
   <script type="module" src="./ux-hybrid.js?v=281"></script>
   <script type="module" src="./profile-and-dashboard-fixes.js?v=281"></script>
@@ -150,7 +150,7 @@
   <script type="module" src="./receipt-dashboard-phase1-v24.js?v=281"></script>
   <script type="module" src="./dashboard-summary-export-v25.js?v=281"></script>
   <script type="module" src="./report-history-v28.js?v=281"></script>
-  <script src="./report-view-toggle-v27.js?v=281"></script>
+  <script src="./report-view-toggle-v27.js?v=dashboard-order-1"></script>
   <script src="./report-review-action-v281.js?v=281"></script>
 </body>
 </html>
