@@ -510,3 +510,21 @@ test("owner cannot save over a submitted report", async () => {
   assert.equal(await r.window.saveReport("Draft"), false);
   assert.equal(r.writes.length, 0);
 });
+
+test("workspace navigation retains icons and current-page state, and history follows active reports", async () => {
+  const r = await createRuntime({ reports: [report("1"), report("2", "Reimbursed")] });
+  await r.login();
+  const nav = r.document.querySelector('.side-nav [data-view="dashboard"]');
+  assert.equal(nav.getAttribute("aria-current"), "page");
+  assert.ok(nav.querySelector("svg"));
+  r.window.showView("editor");
+  assert.equal(r.document.getElementById("workspaceTitle").textContent, "Expense report");
+  assert.equal(nav.hasAttribute("aria-current"), false);
+  assert.equal(r.document.querySelector('.side-nav [data-view="editor"]').getAttribute("aria-current"), "page");
+  assert.ok(r.document.querySelector('.side-nav [data-view="editor"] svg'));
+  assert.equal(r.document.querySelector('.workspace-create').classList.contains("hide"), true);
+  r.window.showView("dashboard");
+  const sections = [...r.document.getElementById("dashboard").children].map(node => node.id);
+  assert.ok(sections.indexOf("reportHistorySection") > sections.indexOf("reportTableWrap"));
+  assert.deepEqual(r.errors, []);
+});

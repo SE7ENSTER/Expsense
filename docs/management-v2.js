@@ -56,12 +56,6 @@ const statusCls = (s) => {
   if (s === "Rejected") return "red";
   return "gray";
 };
-const css =
-  ".mgmt-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}.mgmt-filter{display:grid;grid-template-columns:150px 180px minmax(180px,1fr) auto auto;gap:12px;align-items:end;padding:18px;margin-top:20px}.mgmt-actions{display:flex;gap:8px;flex-wrap:wrap}.mgmt-chip{display:inline-flex;border-radius:999px;padding:7px 11px;font-weight:900;font-size:12px}.mgmt-chip.ok{background:#ecfdf3;color:#027a48}.mgmt-chip.warn{background:#fff8e6;color:#b7791f}.mgmt-chip.process{background:#eef4ff;color:#3538cd}.mgmt-chip.paid{background:#f0fdf4;color:#15803d}.mgmt-chip.red{background:#fff1f3;color:#b42336}.mgmt-chip.gray{background:#f2f4f7;color:#475467}.report-no{font-size:12px;font-weight:950;color:#0b6bff}.category-row td{background:#eef6ff!important;color:#164b8b;font-weight:950;text-transform:uppercase;letter-spacing:.04em}.review-btn,.receipt-btn{border-radius:14px!important;padding:9px 12px!important;font-size:12px!important;box-shadow:none!important}.review-btn{background:#eef6ff!important;color:#0b6bff!important;border:1px solid #cfe0ff!important}.receipt-btn{background:#f3f6fb!important;color:#344054!important}.review-modal{position:fixed;inset:0;background:#10233ab3;z-index:1200;display:grid;place-items:center;padding:22px}.review-box{background:white;border-radius:28px;max-width:1180px;width:96vw;max-height:92vh;overflow:auto;padding:24px;box-shadow:0 30px 90px #0005}.review-head{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid #d9e4f2;padding-bottom:16px}.review-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.review-field{background:#f8fbff;border:1px solid #e4ebf5;border-radius:16px;padding:13px}.review-field b{display:block;font-size:12px;color:#667085;margin-bottom:4px}.receipt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.receipt-item{border:1px solid #d9e4f2;border-radius:18px;padding:14px;background:#fbfdff}.receipt-item img{width:100%;max-height:none;height:auto;object-fit:contain;border-radius:14px;background:#f2f4f7}.inline-actions{gap:8px;flex-wrap:wrap}.budget-save-all{margin-left:12px}@media(max-width:900px){.mgmt-filter,.mgmt-summary,.review-grid,.receipt-grid{grid-template-columns:1fr}}";
-const st = document.createElement("style");
-st.textContent = css;
-document.head.appendChild(st);
-
 async function loadData(refreshReports = true) {
   if (!me || !canManage()) return;
   const uid = me.uid;

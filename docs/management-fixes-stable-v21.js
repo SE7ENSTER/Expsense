@@ -15,8 +15,6 @@ function updateWording() {
       if (t !== el.textContent) el.textContent = t;
     }
   });
-  const sideEditor = document.querySelector('.side-nav [data-view="editor"]');
-  if (sideEditor) sideEditor.textContent = "Create Expense Report";
 }
 function styleActionButtons() {
   document.querySelectorAll("button").forEach((btn) => {

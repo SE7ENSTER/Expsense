@@ -83,7 +83,7 @@ function ensureSection() {
     section = document.createElement("section");
     section.id = "reportHistorySection";
     section.className = "history-section";
-    list.after(section);
+    (document.getElementById("reportTableWrap") || list).after(section);
   }
   return section;
 }
