@@ -652,7 +652,7 @@ label {
   overflow: hidden;
 }
 .table-wrap {
-  overflow: auto;
+  min-width: 0;
 }
 .admin-note {
   padding: 22px;
@@ -664,7 +664,7 @@ label {
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  table-layout: fixed;
 }
 .admin-table th,
 .admin-table td {
@@ -686,7 +686,7 @@ label {
 }
 .mgmt-filter {
   display: grid;
-  grid-template-columns: 150px 180px minmax(180px, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr) auto auto;
   gap: 12px;
   align-items: end;
   padding: 18px;
@@ -1350,5 +1350,289 @@ label {
     scroll-behavior: auto !important;
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Responsive content sizing: wrap data instead of clipping the page horizontally. */
+.wrap > section,
+.layout > *,
+.meta > *,
+.form > *,
+.side > *,
+.quick > *,
+.mgmt-filter > *,
+.admin-create-grid > *,
+.register-grid > *,
+.profile-grid > * {
+  min-width: 0;
+}
+input,
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+.admin-table th,
+.admin-table td {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  padding: 14px 10px;
+  font-size: 12px;
+}
+.admin-table th {
+  font-size: 10px;
+}
+.admin-table button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.admin-table .role-select {
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+  padding: 8px 5px;
+}
+.admin-table .inline-actions {
+  align-items: stretch;
+  flex-direction: column;
+}
+@media (max-width: 1180px) {
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    clip-path: inset(50%);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .admin-table,
+  .admin-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .admin-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 22px;
+    padding: 17px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .admin-table td {
+    display: block;
+    min-width: 0;
+    padding: 9px 0;
+    border: 0;
+  }
+  .admin-table td[data-label]:before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .admin-table td[colspan] {
+    grid-column: 1/-1;
+  }
+  .admin-table .inline-actions {
+    flex-direction: row;
+  }
+  .category-row {
+    grid-template-columns: 1fr !important;
+  }
+  .mgmt-filter {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mgmt-filter > label:nth-child(3) {
+    grid-column: 1/-1;
+  }
+  .mgmt-summary .card strong,
+  .quick strong {
+    font-size: clamp(18px, 2vw, 26px);
+    overflow-wrap: anywhere;
+  }
+}
+@media (max-width: 760px) {
+  .top {
+    position: static;
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .top > div:first-child {
+    width: 100%;
+  }
+  .top > .top-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .top > .top-actions button {
+    min-height: 42px;
+  }
+  .brand-lockup {
+    justify-content: space-between;
+  }
+  .wrap {
+    padding: 22px 14px 36px;
+  }
+  .workspace-create {
+    width: 100%;
+    min-height: 44px;
+  }
+  .workspace-heading {
+    gap: 16px;
+  }
+  .workspace-heading > div {
+    min-width: 0;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  input,
+  select {
+    min-height: 46px;
+  }
+  .meta {
+    padding: 18px;
+  }
+  .section-heading {
+    align-items: flex-start;
+  }
+  .section-step {
+    flex-shrink: 0;
+  }
+  .overview-metrics .metric-symbol {
+    position: static;
+    margin: 0 0 10px;
+  }
+  .overview-metrics .muted {
+    max-width: none;
+  }
+  .overview-metrics strong {
+    margin-top: 8px;
+  }
+  .overview-metrics .card {
+    min-height: 142px;
+  }
+  .item {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px;
+    gap: 12px;
+  }
+  .item:before {
+    left: 58px;
+    top: 24px;
+  }
+  .item .form {
+    padding-top: 5px;
+  }
+  .item > div:last-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-column: 1;
+  }
+  .item > div:last-child .preview,
+  .item > div:last-child .phase1-note,
+  .item > div:last-child .full {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .item > div:last-child .preview {
+    height: 180px;
+  }
+  .upload {
+    min-height: 66px;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+  }
+  .toolbar .top-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .toolbar .top-actions button {
+    font-size: 12px;
+    min-height: 44px;
+  }
+  .toolbar .top-actions button:last-child {
+    grid-column: 1/-1;
+  }
+  .review-box,
+  .register-card,
+  .profile-modal-card {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    padding: 18px;
+  }
+  .review-modal,
+  .register-modal,
+  .profile-modal {
+    padding: 12px;
+  }
+  .profile-hero {
+    align-items: flex-start;
+  }
+  .profile-hero h3 {
+    overflow-wrap: anywhere;
+  }
+  .login-card {
+    padding: 38px 22px;
+  }
+  .login-card .brand-lockup {
+    justify-content: flex-start;
+  }
+  .login-card .brand-logo {
+    width: 140px;
+  }
+  .login-card .brand-app-name {
+    font-size: 15px;
+  }
+  .mgmt-filter {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mgmt-filter > label:nth-child(3) {
+    grid-column: auto;
+  }
+}
+@media (max-width: 560px) {
+  .admin-table tbody tr {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 15px 17px;
+  }
+  .admin-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(75px, 30%) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+  .admin-table td[data-label]:before {
+    margin: 2px 0 0;
+  }
+  .admin-table .inline-actions {
+    flex-direction: column;
+  }
+  .history-head {
+    padding: 17px;
+  }
+  .summary-title-row {
+    gap: 14px;
+  }
+  .summary-title-row > div {
+    min-width: 0;
+  }
+  .dash-summary .card:last-child strong {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-table button {
+    min-height: 44px;
+  }
+  .admin-table .role-select {
+    font-size: 16px;
   }
 }

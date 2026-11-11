@@ -512,19 +512,72 @@ test("owner cannot save over a submitted report", async () => {
 });
 
 test("workspace navigation retains icons and current-page state, and history follows active reports", async () => {
-  const r = await createRuntime({ reports: [report("1"), report("2", "Reimbursed")] });
+  const r = await createRuntime({
+    reports: [report("1"), report("2", "Reimbursed")],
+  });
   await r.login();
   const nav = r.document.querySelector('.side-nav [data-view="dashboard"]');
   assert.equal(nav.getAttribute("aria-current"), "page");
   assert.ok(nav.querySelector("svg"));
   r.window.showView("editor");
-  assert.equal(r.document.getElementById("workspaceTitle").textContent, "Expense report");
+  assert.equal(
+    r.document.getElementById("workspaceTitle").textContent,
+    "Expense report",
+  );
   assert.equal(nav.hasAttribute("aria-current"), false);
-  assert.equal(r.document.querySelector('.side-nav [data-view="editor"]').getAttribute("aria-current"), "page");
+  assert.equal(
+    r.document
+      .querySelector('.side-nav [data-view="editor"]')
+      .getAttribute("aria-current"),
+    "page",
+  );
   assert.ok(r.document.querySelector('.side-nav [data-view="editor"] svg'));
-  assert.equal(r.document.querySelector('.workspace-create').classList.contains("hide"), true);
+  assert.equal(
+    r.document.querySelector(".workspace-create").classList.contains("hide"),
+    true,
+  );
   r.window.showView("dashboard");
-  const sections = [...r.document.getElementById("dashboard").children].map(node => node.id);
-  assert.ok(sections.indexOf("reportHistorySection") > sections.indexOf("reportTableWrap"));
+  const sections = [...r.document.getElementById("dashboard").children].map(
+    (node) => node.id,
+  );
+  assert.ok(
+    sections.indexOf("reportHistorySection") >
+      sections.indexOf("reportTableWrap"),
+  );
+  assert.deepEqual(r.errors, []);
+});
+
+test("responsive report and management rows retain field labels and action controls after refresh", async () => {
+  const r = await createRuntime({
+    role: "admin",
+    reports: [report("1"), report("2", "Reimbursed"), report("3", "Submitted")],
+  });
+  await r.login();
+  const assertLabels = () => {
+    for (const table of r.document.querySelectorAll(
+      ".report-grid,.history-table,.admin-table",
+    )) {
+      const headers = [...table.querySelectorAll("thead th")].map((th) =>
+        th.textContent.trim(),
+      );
+      for (const row of table.querySelectorAll("tbody tr")) {
+        [...row.children].forEach((cell, index) => {
+          if (Number(cell.getAttribute("colspan") || 1) > 1) return;
+          assert.equal(cell.dataset.label, headers[index]);
+        });
+      }
+    }
+  };
+  assertLabels();
+  const select = r.document.getElementById("adminRole-user-1");
+  select.value = "finance";
+  r.eventModule().emit("management-rendered");
+  assert.equal(r.document.getElementById("adminRole-user-1"), select);
+  assert.equal(select.value, "finance");
+  await r.window.refreshAdmin();
+  await r.settle();
+  assertLabels();
+  r.document.querySelector('[data-report-review="1"]').click();
+  assert.ok(r.document.querySelector(".review-modal"));
   assert.deepEqual(r.errors, []);
 });

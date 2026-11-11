@@ -77,3 +77,31 @@ on("view-changed", ({ view }) => {
   updateSideVisibility();
 });
 on("session", () => updateSideVisibility());
+
+// Keep headings beside values when management tables become stacked on small screens.
+function labelManagementTables() {
+  document.querySelectorAll(".admin-table").forEach((table) => {
+    const headings = [...table.querySelectorAll("thead th")].map((th) =>
+      th.textContent.trim(),
+    );
+    table.querySelectorAll("tbody tr").forEach((row) => {
+      [...row.children].forEach((cell, index) => {
+        if (
+          cell.tagName !== "TD" ||
+          Number(cell.getAttribute("colspan") || 1) > 1
+        )
+          return;
+        cell.dataset.label = headings[index] || "";
+      });
+    });
+  });
+}
+labelManagementTables();
+for (const event of [
+  "management-rendered",
+  "users-loaded",
+  "review-opened",
+  "view-changed",
+]) {
+  on(event, labelManagementTables);
+}

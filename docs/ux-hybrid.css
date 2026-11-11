@@ -119,15 +119,17 @@
     display: none;
   }
   .side-nav {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
-    overflow: auto;
   }
   .side-nav button {
     width: auto;
     flex-shrink: 0;
     padding: 10px 14px;
-    white-space: nowrap;
+    white-space: normal;
+    min-width: 0;
+    justify-content: center;
   }
   .nav-icon {
     width: 16px;
@@ -150,5 +152,30 @@
   .nav-icon {
     width: 15px;
     height: 15px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-sidebar {
+    padding: 8px 14px;
+  }
+  .side-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .side-nav button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: flex-start;
+    font-size: 12px;
+    padding: 10px;
+    white-space: normal;
+  }
+  .side-nav button span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .nav-icon {
+    flex-shrink: 0;
   }
 }
