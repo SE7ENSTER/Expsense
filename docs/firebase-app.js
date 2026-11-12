@@ -1,4 +1,5 @@
 import { formatReportDate } from "./report-dates.js";
+import { showManagementPage } from "./management-pages.js";
 import { waitForUserProfile } from "./user-registration.js";
 import { auth, db } from "./firebase-client.js";
 import { emit } from "./app-events.js";
@@ -292,6 +293,12 @@ onAuthStateChanged(auth, async (u) => {
   }
 });
 window.showView = (view) => {
+  let managementPage;
+  if (view.startsWith("admin-")) {
+    managementPage = view.slice(6);
+    view = "admin";
+  }
+  if (view === "admin" && !canSeeAdmin()) view = "dashboard";
   if (!["dashboard", "editor", "admin"].includes(view)) view = "dashboard";
   ["dashboard", "editor", "admin"].forEach((id) => {
     q(id).classList.toggle("hide", id !== view);
@@ -299,7 +306,8 @@ window.showView = (view) => {
   });
   if (view === "dashboard") dash();
   if (view === "editor") initReportIfNeeded();
-  emit("view-changed", { view });
+  if (view === "admin") managementPage = showManagementPage(managementPage);
+  emit("view-changed", { view, managementPage });
 };
 function initReportIfNeeded() {
   if (!current) window.newReport(false);

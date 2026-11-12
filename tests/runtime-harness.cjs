@@ -28,6 +28,7 @@ exports.createRuntime = async function ({
   globals.set("window", window);
   const errors = [],
     alerts = [],
+    passwordResetRequests = [],
     writes = [],
     queries = [],
     intervals = new Map(),
@@ -36,6 +37,7 @@ exports.createRuntime = async function ({
   let timer = 0,
     clock = 100,
     failNextWrite = false,
+    failNextPasswordReset = false,
     pauseWrite = null,
     pauseNextReportRead = null;
   const data = new Map();
@@ -176,6 +178,13 @@ exports.createRuntime = async function ({
       await authHandler(null);
     },
     signInWithEmailAndPassword: async () => {},
+    sendPasswordResetEmail: async (_, email) => {
+      passwordResetRequests.push(email);
+      if (failNextPasswordReset) {
+        failNextPasswordReset = false;
+        throw Error("Simulated reset failure");
+      }
+    },
     createUserWithEmailAndPassword: async (_, email) => {
       const created = { uid: "registered-user", email };
       auth.currentUser = created;
@@ -291,6 +300,7 @@ exports.createRuntime = async function ({
             "getAuth",
             "onAuthStateChanged",
             "signInWithEmailAndPassword",
+            "sendPasswordResetEmail",
             "createUserWithEmailAndPassword",
             "signOut",
           ]
@@ -353,6 +363,10 @@ exports.createRuntime = async function ({
     context,
     errors,
     alerts,
+    passwordResetRequests,
+    failPasswordReset: () => {
+      failNextPasswordReset = true;
+    },
     writes,
     queries,
     intervals,

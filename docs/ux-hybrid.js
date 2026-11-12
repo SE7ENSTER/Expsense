@@ -59,7 +59,11 @@ function updateSideNav(view) {
   if (qs("workspaceWelcome")) qs("workspaceWelcome").textContent = description;
   document
     .querySelector(".workspace-create")
-    ?.classList.toggle("hide", view === "editor");
+    ?.classList.toggle("hide", view === "editor" || view === "admin");
+  document
+    .querySelector(".submission-deadline")
+    ?.classList.toggle("hide", view === "admin");
+  document.querySelector(".hero")?.classList.toggle("hide", view === "admin");
 }
 function updateSideVisibility() {
   const sideAdmin = qs("side-admin");

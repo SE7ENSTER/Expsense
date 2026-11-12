@@ -21,7 +21,7 @@ The EXP prefix is a new numbering namespace so allocation does not assume a maxi
 
 ## Validation
 
-- 71 application/dashboard regression and workflow tests pass.
+- 80 application/dashboard regression and workflow tests pass.
 - 58 Firestore security-rule checks pass.
 - 13 integrated scenarios run the actual production application modules with the real Firestore SDK against the isolated Firestore Emulator. These include two managers competing for one approval, two users allocating numbers concurrently, legacy numbering, receipts, notices, payment reference validation, ownership restrictions and History.
 - Production JavaScript syntax and imported assets are checked before release.
@@ -38,3 +38,11 @@ Backup branch: `backup/pre-workflow-audit-20261112` at `52718f84bd16667bb437763e
 ## Report viewer follow-up
 
 Current Report rows and report-number buttons now open the existing readable review dialog with receipts and Print / Save PDF. Draft and Revision Requested reports offer Edit report to open the same saved document. Submitted and later reports remain view-only. Owner review hides back-office budget calculations when no budget data has been loaded. Three regression scenarios cover the restored viewer, receipts/print, and editing from the viewer.
+
+## Management pages follow-up
+
+Management is split into User Management (Admin only), Budget Management, combined Manager & Finance Review, and All Reports. Only the selected page is displayed. Review and All Reports keep separate filters; navigation preserves user creation input. New expense report and the deadline banner are hidden on Management pages.
+
+Admin can request a Firebase Authentication password reset email for a selected known user, after confirming the recipient. No password is generated or stored by this action. UI handles cancellation, errors and duplicate requests. These tests mock the Auth email call; actual email delivery is not established.
+
+Budget Save All snapshots every entered value before committing and refreshing, so saving one budget cannot discard the following edited amounts. The Close report control has a prominent label, 44px target, visible keyboard focus, and remains in the sticky viewer header. Print output continues to omit controls.

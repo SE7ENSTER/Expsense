@@ -8,6 +8,7 @@ import {
   getDocs,
   setDoc,
   runTransaction,
+  writeBatch,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -110,15 +111,15 @@ function fyList() {
   const n = +fiscal().replace("FY", "");
   return ["FY" + (n - 1), "FY" + n, "FY" + (n + 1)];
 }
-function filter() {
+function filter(scope = "mgmt") {
   return {
-    fy: $("mgmtFyFilter")?.value || "All",
-    st: $("mgmtStatusFilter")?.value || "All",
-    q: ($("mgmtEmployeeFilter")?.value || "").toLowerCase().trim(),
+    fy: $(scope + "FyFilter")?.value || "All",
+    st: $(scope + "StatusFilter")?.value || "All",
+    q: ($(scope + "EmployeeFilter")?.value || "").toLowerCase().trim(),
   };
 }
-function rows() {
-  const f = filter();
+function rows(scope = "mgmt") {
+  const f = filter(scope);
   return reports.filter((r) => {
     const m = r.meta || {},
       txt = (m.employee + " " + r.userEmail + " " + m.purpose).toLowerCase();
@@ -146,26 +147,31 @@ function renderAll() {
 }
 
 function injectFilter() {
-  if ($("mgmtFilterBox")) return;
-  const grid = document.querySelector("#admin .admin-grid");
-  if (!grid) return;
-  const box = document.createElement("div");
-  box.id = "mgmtFilterBox";
-  box.className = "card mgmt-filter";
-  box.innerHTML = `<label>Fiscal Year<select id="mgmtFyFilter"><option>All</option>${fyList()
-    .map((x) => `<option>${x}</option>`)
-    .join(
-      "",
-    )}</select></label><label>Status<select id="mgmtStatusFilter"><option>All</option><option>Submitted</option><option>Manager Approved</option><option>Finance Processing</option><option>Reimbursement Processing</option><option>Reimbursed</option><option>Rejected</option><option>Revision Requested</option><option>Closed</option></select></label><label>Employee / Email<input id="mgmtEmployeeFilter" placeholder="Search"></label><div class="mgmt-actions"><button class="secondary" id="mgmtApply">Apply</button><button class="secondary" id="mgmtClear">Clear</button></div><button id="exportCsvBtn">Export CSV</button>`;
-  grid.after(box);
-  $("mgmtApply").onclick = renderAll;
-  $("mgmtClear").onclick = () => {
-    $("mgmtFyFilter").value = "All";
-    $("mgmtStatusFilter").value = "All";
-    $("mgmtEmployeeFilter").value = "";
-    renderAll();
-  };
-  $("exportCsvBtn").onclick = exportCsv;
+  for (const [prefix, hostId] of [
+    ["mgmt", "managementReviewFilters"],
+    ["allReports", "managementReportFilters"],
+  ]) {
+    if ($(prefix + "FilterBox")) continue;
+    const host = $(hostId);
+    if (!host) continue;
+    const box = document.createElement("div");
+    box.id = prefix + "FilterBox";
+    box.className = "card mgmt-filter";
+    box.innerHTML = `<label>Fiscal Year<select id="${prefix}FyFilter"><option>All</option>${fyList()
+      .map((value) => `<option>${value}</option>`)
+      .join(
+        "",
+      )}</select></label><label>Status<select id="${prefix}StatusFilter">${["All", "Draft", "Submitted", "Manager Approved", "Finance Processing", "Reimbursement Processing", "Reimbursed", "Rejected", "Revision Requested", "Closed"].map((value) => `<option>${value}</option>`).join("")}</select></label><label>Employee / Email<input id="${prefix}EmployeeFilter" placeholder="Search"></label><div class="mgmt-actions"><button class="secondary" id="${prefix}Apply">Apply</button><button class="secondary" id="${prefix}Clear">Clear</button></div>${prefix === "allReports" ? '<button id="exportCsvBtn">Export CSV</button>' : ""}`;
+    host.appendChild(box);
+    $(prefix + "Apply").onclick = renderAll;
+    $(prefix + "Clear").onclick = () => {
+      $(prefix + "FyFilter").value = "All";
+      $(prefix + "StatusFilter").value = "All";
+      $(prefix + "EmployeeFilter").value = "";
+      renderAll();
+    };
+  }
+  if ($("exportCsvBtn")) $("exportCsvBtn").onclick = exportCsv;
 }
 function renderCompanyBudget() {
   let box = $("companyBudget");
@@ -173,7 +179,7 @@ function renderCompanyBudget() {
     box = document.createElement("div");
     box.id = "companyBudget";
     box.className = "mgmt-summary";
-    $("mgmtFilterBox")?.after(box);
+    $("managementBudgetSummary")?.appendChild(box);
   }
   const fy = $("budgetFySelect")?.value || fiscal(),
     totalBudget = budgets
@@ -255,8 +261,54 @@ window.saveBudget = async (uid) => {
   }
 };
 async function saveAllBudgets() {
-  for (const i of document.querySelectorAll(".budget-input"))
-    await window.saveBudget(i.id.replace("budget-", ""));
+  if (!me || !isAdmin()) return false;
+  const actor = me.uid,
+    fy = $("budgetFySelect").value;
+  const values = [...document.querySelectorAll(".budget-input")].map(
+    (input) => ({
+      uid: input.id.replace("budget-", ""),
+      amount: Number(input.value || 0),
+    }),
+  );
+  if (
+    values.some((value) => !Number.isFinite(value.amount) || value.amount < 0)
+  ) {
+    alert("Budget amounts must be zero or greater.");
+    return false;
+  }
+  try {
+    for (let start = 0; start < values.length; start += 400) {
+      if (me?.uid !== actor || !isAdmin()) return false;
+      const batch = writeBatch(db);
+      for (const value of values.slice(start, start + 400)) {
+        const user = users.find((entry) => entry.id === value.uid);
+        batch.set(
+          doc(db, "budgets", value.uid + "_" + fy),
+          {
+            userId: value.uid,
+            userEmail: user?.email || "",
+            fiscalYear: fy,
+            currency: "HKD",
+            budgetAmount: value.amount,
+            updatedAt: serverTimestamp(),
+            updatedBy: actor,
+          },
+          { merge: true },
+        );
+      }
+      await batch.commit();
+    }
+    if (me?.uid === actor) await loadData();
+    alert("Budgets saved and recalculated.");
+    return true;
+  } catch (error) {
+    alert(
+      "Cannot save all budgets: " +
+        error.message +
+        ". Refresh to check saved balances.",
+    );
+    return false;
+  }
 }
 function rowHtml(r) {
   const m = r.meta || {},
@@ -342,7 +394,7 @@ function renderVisible() {
   tb.closest("table").querySelector("thead").innerHTML =
     "<tr><th>Report No.</th><th>Employee</th><th>Purpose</th><th>FY</th><th>Status</th><th>User</th><th>Total</th><th>Action</th></tr>";
   tb.innerHTML =
-    rows()
+    rows("allReports")
       .map((r) => {
         const m = r.meta || {};
         return `<tr><td><span class="report-no">${esc(reportLabel(r))}</span></td><td>${esc(m.employee || "-")}</td><td>${esc(m.purpose || "-")}</td><td>${reportFy(r)}</td><td><span class="mgmt-chip ${statusCls(r.status)}">${esc(dispStatus(r.status))}</span></td><td>${esc(r.userEmail || "-")}</td><td>${money(rawTotal(r))}</td><td><button class="review-btn" onclick="reviewReport('${r.id}')">Review</button></td></tr>`;
@@ -368,7 +420,7 @@ window.reviewReport = async (id, receiptsOnly = false) => {
   modal.setAttribute("role", "dialog");
   modal.setAttribute("aria-modal", "true");
   modal.setAttribute("aria-label", "Expense report details");
-  modal.innerHTML = `<div class="review-box"><div class="review-head"><div><h2>${receiptsOnly ? "Receipt Review" : "Expense Report Review"}</h2><p class="muted"><span class="report-no">${esc(reportLabel(r))}</span> · ${esc(dispStatus(r.status))}</p></div><button type="button" class="ghost" data-review-close>Close</button></div>${receiptsOnly ? "" : `<div class="review-grid"><div class="review-field"><b>Employee</b>${esc(m.employee || r.userEmail || "-")}</div><div class="review-field"><b>Purpose</b>${esc(m.purpose || "-")}</div><div class="review-field"><b>Total</b>${money(rawTotal(r))}</div>${canManage() ? `<div class="review-field"><b>Available after claim</b>${money(b.available - rawTotal(r))}</div>` : ""}</div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Home Currency</th><th>Amount</th><th>HKD Amount</th><th>Ref</th></tr></thead><tbody>${items.map((it, i) => `<tr><td>${esc(formatReportDate(it.date))}</td><td>${esc(it.desc || "-")}</td><td>${esc(it.category || "-")}</td><td>${esc(it.currency || "-")}</td><td>${Number(it.amount || 0).toFixed(2)}</td><td>${money((+it.amount || 0) * (+it.fx || 0))}</td><td>R${String(i + 1).padStart(2, "0")}</td></tr>`).join("")}</tbody></table></div>`}${[
+  modal.innerHTML = `<div class="review-box"><div class="review-head"><div><h2>${receiptsOnly ? "Receipt Review" : "Expense Report Review"}</h2><p class="muted"><span class="report-no">${esc(reportLabel(r))}</span> · ${esc(dispStatus(r.status))}</p></div><div class="review-actions"><button type="button" class="review-close" data-review-close aria-label="Close report">✕ Close</button></div></div>${receiptsOnly ? "" : `<div class="review-grid"><div class="review-field"><b>Employee</b>${esc(m.employee || r.userEmail || "-")}</div><div class="review-field"><b>Purpose</b>${esc(m.purpose || "-")}</div><div class="review-field"><b>Total</b>${money(rawTotal(r))}</div>${canManage() ? `<div class="review-field"><b>Available after claim</b>${money(b.available - rawTotal(r))}</div>` : ""}</div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Home Currency</th><th>Amount</th><th>HKD Amount</th><th>Ref</th></tr></thead><tbody>${items.map((it, i) => `<tr><td>${esc(formatReportDate(it.date))}</td><td>${esc(it.desc || "-")}</td><td>${esc(it.category || "-")}</td><td>${esc(it.currency || "-")}</td><td>${Number(it.amount || 0).toFixed(2)}</td><td>${money((+it.amount || 0) * (+it.fx || 0))}</td><td>R${String(i + 1).padStart(2, "0")}</td></tr>`).join("")}</tbody></table></div>`}${[
     ["Manager comment", r.managerComment],
     ["Finance remark", r.financeRemark],
     ["Payment reference", r.paymentReference],
@@ -404,7 +456,7 @@ window.reviewReport = async (id, receiptsOnly = false) => {
         edit.disabled = false;
       }
     };
-    modal.querySelector(".review-head").appendChild(edit);
+    modal.querySelector(".review-actions").appendChild(edit);
   }
   document.body.appendChild(modal);
   emit("review-opened", { modal, report: r });
@@ -665,7 +717,7 @@ function exportCsv() {
       "Payment Ref",
     ],
     lines = [h.join(",")].concat(
-      rows().map((r) => {
+      rows("allReports").map((r) => {
         const m = r.meta || {};
         return [
           reportLabel(r),
