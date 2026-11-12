@@ -1,10 +1,10 @@
 {
-  "testedAt": "2026-11-10T05:35:34.563Z",
+  "testedAt": "2026-11-12T06:07:30.956Z",
   "scope": "Release candidate evaluated in isolated emulator; live data and deployed rules not independently verified",
   "summary": {
     "firestore.rules": {
-      "checks": 58,
-      "expectedResults": 58,
+      "checks": 69,
+      "expectedResults": 69,
       "findings": 0
     }
   },
@@ -447,6 +447,94 @@
       "category": "security",
       "expectedAllowed": true,
       "actualAllowed": true,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Owner cannot backdate submission",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Manager cannot backdate approval",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Finance cannot backdate review",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Finance cannot backdate reimbursement",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Draft edit cannot overwrite submission time",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Finance can close Processing with server time and payment reference",
+      "category": "security",
+      "expectedAllowed": true,
+      "actualAllowed": true,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "Admin can reject Submitted and create its audit atomically",
+      "category": "security",
+      "expectedAllowed": true,
+      "actualAllowed": true,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "admin may reject an incomplete legacy report without changing its amounts",
+      "category": "security",
+      "expectedAllowed": true,
+      "actualAllowed": true,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "admin cannot change amounts through the legacy rejection exception",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "manager may reject an incomplete legacy report without changing its amounts",
+      "category": "security",
+      "expectedAllowed": true,
+      "actualAllowed": true,
+      "matchesExpectation": true
+    },
+    {
+      "rules": "firestore.rules",
+      "name": "manager cannot change amounts through the legacy rejection exception",
+      "category": "security",
+      "expectedAllowed": false,
+      "actualAllowed": false,
       "matchesExpectation": true
     },
     {

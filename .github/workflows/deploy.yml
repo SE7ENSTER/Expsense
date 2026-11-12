@@ -6,6 +6,7 @@ on:
     paths:
       [
         "docs/**",
+        "release/**",
         "tests/**",
         "package.json",
         ".github/workflows/deploy.yml",
@@ -18,6 +19,7 @@ on:
     paths:
       [
         "docs/**",
+        "release/**",
         "tests/**",
         "package.json",
         ".github/workflows/deploy.yml",
@@ -52,6 +54,35 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/slg-tests/node_modules
         run: npm test
 
+  verify-print-layout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install isolated print test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/slg-print" --no-save --package-lock=false --ignore-scripts linkedom@0.18.12
+          python -m pip install --disable-pip-version-check PyMuPDF==1.26.6 Pillow==13.0.0
+      - name: Verify actual Chrome PDF pages and receipt bounds
+        env:
+          NODE_PATH: ${{ runner.temp }}/slg-print/node_modules
+        run: python tests/report-print-pdf.py
+      - name: Keep synthetic PDF layout evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipt-print-layout
+          path: |
+            .test-output/receipt-print/*.pdf
+            .test-output/receipt-print/*.png
+            .test-output/receipt-print/print-layout-results.json
+          retention-days: 7
+
   verify-rules:
     runs-on: ubuntu-latest
     steps:
@@ -64,17 +95,17 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Install isolated Firebase test tools
-        run: npm install --prefix "$RUNNER_TEMP/slg-rules" --no-save --package-lock=false --ignore-scripts firebase-tools@15.35.0 @firebase/rules-unit-testing@6.0.0 firebase@13.2.0
+        run: npm install --prefix "$RUNNER_TEMP/slg-rules" --no-save --package-lock=false --ignore-scripts firebase-tools@15.35.0 @firebase/rules-unit-testing@6.0.0 firebase@13.2.0 linkedom@0.18.12
       - name: Verify rules in isolated Firestore Emulator
         env:
           NODE_PATH: ${{ runner.temp }}/slg-rules/node_modules
         run: |
           export PATH="$RUNNER_TEMP/slg-rules/node_modules/.bin:$PATH"
-          npm run test:rules
+          npm run test:release:rules
 
   deploy:
     if: github.event_name != 'pull_request'
-    needs: [verify, verify-rules]
+    needs: [verify, verify-rules, verify-print-layout]
     runs-on: ubuntu-latest
     permissions:
       contents: read

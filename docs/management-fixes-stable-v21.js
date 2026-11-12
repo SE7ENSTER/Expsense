@@ -1,4 +1,5 @@
 import { on } from "./app-events.js";
+import { printReviewModal } from "./report-print.js";
 let me = null,
   profile = { role: "user" };
 const $ = (id) => document.getElementById(id);
@@ -92,21 +93,8 @@ function addPrintButtons() {
     btn.className = "btn-print";
     btn.textContent = "Print / Save PDF";
     btn.onclick = () => printReviewModal(modal);
-    head.appendChild(btn);
+    (head.querySelector(".review-actions") || head).appendChild(btn);
   });
-}
-function printReviewModal(modal) {
-  const box = modal.querySelector(".review-box");
-  const w = window.open("", "_blank", "width=1100,height=800");
-  if (!w) return alert("Please allow pop-ups to print this report.");
-  w.document.write(
-    `<html><head><title>EXPENSiO | Expense Report Review</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:24px}.review-head{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;margin-bottom:18px}.ghost,.btn-print{display:none}.review-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}.review-field{border:1px solid #ddd;border-radius:10px;padding:10px}.review-field b{display:block;color:#64748b;font-size:12px;margin-bottom:6px}.admin-table{width:100%;border-collapse:collapse}.admin-table th,.admin-table td{padding:9px;border-bottom:1px solid #ddd;text-align:left}.receipt-grid{display:grid;grid-template-columns:1fr;gap:18px}.receipt-item{page-break-inside:avoid;border:1px solid #ddd;border-radius:12px;padding:12px}.receipt-item img{max-width:100%;height:auto}@media print{body{margin:12mm}}</style></head><body>${box.innerHTML}</body></html>`,
-  );
-  w.document.close();
-  setTimeout(() => {
-    w.focus();
-    w.print();
-  }, 500);
 }
 function applyFixes() {
   updateWording();

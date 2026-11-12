@@ -21,7 +21,7 @@ function buildHybridShell() {
     admin:
       '<path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z"/><path d="m8 12 3 3 5-6"/>',
   };
-  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button></nav></div><div class="side-footer"><strong>EXPENSiO</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
+  aside.innerHTML = `<div><p class="sidebar-title">Personal</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>My Expenses</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="monthly-invoices">${icon(icons.editor)}<span>Monthly Invoice</span></button></nav><div id="side-management-group"><p class="sidebar-title">Management</p><nav class="side-nav" aria-label="Management navigation"><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button></nav></div></div><div class="side-footer"><strong>EXPENSiO</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
   main.classList.add("main-workspace");
   header.after(shell);
   shell.appendChild(aside);
@@ -47,10 +47,17 @@ function updateSideNav(view) {
     else button.removeAttribute("aria-current");
   });
   const titles = {
-    dashboard: ["Overview", "Your expenses, all in one place."],
+    dashboard: [
+      "My Expenses",
+      "Your personal expense reports, totals and history.",
+    ],
     editor: [
       "Expense report",
       "Keep the details together. We’ll take care of the totals.",
+    ],
+    "monthly-invoices": [
+      "Monthly Invoice",
+      "Prepare, sign and submit your monthly invoice.",
     ],
     admin: ["Management", "Review, approve and track your team’s expenses."],
   };
@@ -59,9 +66,19 @@ function updateSideNav(view) {
   if (qs("workspaceWelcome")) qs("workspaceWelcome").textContent = description;
   document
     .querySelector(".workspace-create")
-    ?.classList.toggle("hide", view === "editor");
+    ?.classList.toggle("hide", view !== "dashboard");
+  document
+    .querySelector(".submission-deadline")
+    ?.classList.toggle("hide", view === "admin" || view === "monthly-invoices");
+  document
+    .querySelector(".hero")
+    ?.classList.toggle("hide", view === "admin" || view === "monthly-invoices");
 }
 function updateSideVisibility() {
+  qs("side-management-group")?.classList.toggle(
+    "hide",
+    qs("tab-admin")?.classList.contains("hide") ?? true,
+  );
   const sideAdmin = qs("side-admin");
   if (sideAdmin && qs("tab-admin"))
     sideAdmin.classList.toggle(

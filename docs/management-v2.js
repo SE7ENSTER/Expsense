@@ -1,11 +1,22 @@
+import {
+  REPORT_EVENTS,
+  REPORT_TIME_LABEL,
+  reportEventTime,
+  formatReportTimestamp,
+  timestampMonth,
+} from "./report-timeline.js";
+import { formatReportDate } from "./report-dates.js";
 import { db } from "./firebase-client.js";
 import { on, emit } from "./app-events.js";
 import { reportNumber } from "./report-dashboard.js";
 import {
   collection,
+  query,
+  where,
   doc,
   getDocs,
   setDoc,
+  runTransaction,
   writeBatch,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
@@ -13,6 +24,10 @@ import {
 let me = null,
   profile = { role: "user" },
   reports = [],
+  personalReports = [],
+  managementReports = [],
+  managementSession = 0,
+  managementLoad = 0,
   users = [],
   budgets = [],
   activeReportId = "";
@@ -56,42 +71,83 @@ const statusCls = (s) => {
   if (s === "Rejected") return "red";
   return "gray";
 };
-async function loadData(refreshReports = true) {
+function rebuildManagementReports() {
+  const merged = new Map(
+    managementReports.map((report) => [report.id, report]),
+  );
+  for (const report of personalReports) merged.set(report.id, report);
+  reports = [...merged.values()];
+}
+function managementReportQuery() {
+  if (isAdmin()) return collection(db, "expenseReports");
+  const statuses = isManager()
+    ? [
+        "Submitted",
+        "Manager Approved",
+        "Rejected",
+        "Revision Requested",
+        "Finance Processing",
+        "Reimbursement Processing",
+        "Reimbursed",
+        "Closed",
+      ]
+    : [
+        "Manager Approved",
+        "Finance Processing",
+        "Reimbursement Processing",
+        "Reimbursed",
+        "Closed",
+      ];
+  return query(
+    collection(db, "expenseReports"),
+    where("status", "in", statuses),
+  );
+}
+async function loadData(refreshPersonal = true) {
   if (!me || !canManage()) return;
-  const uid = me.uid;
-  let nextUsers = [],
-    nextBudgets = [];
-  try {
-    nextUsers = (await getDocs(collection(db, "users"))).docs.map((d) => ({
-      ...d.data(),
-      id: d.id,
-    }));
-  } catch (error) {}
-  try {
-    nextBudgets = (await getDocs(collection(db, "budgets"))).docs.map((d) => ({
-      ...d.data(),
-      id: d.id,
-    }));
-  } catch (error) {}
-  if (me?.uid !== uid) return;
-  users = nextUsers;
-  budgets = nextBudgets;
-  if (refreshReports) {
-    const refreshed = await window.refreshDashboardReports?.();
-    if (refreshed) reports = refreshed;
-  }
-  if (me?.uid === uid) renderAll();
+  const uid = me.uid,
+    session = managementSession,
+    request = ++managementLoad;
+  const results = await Promise.allSettled([
+    getDocs(collection(db, "users")),
+    getDocs(collection(db, "budgets")),
+    getDocs(managementReportQuery()),
+    refreshPersonal ? window.refreshDashboardReports?.() : Promise.resolve(),
+  ]);
+  if (
+    me?.uid !== uid ||
+    session !== managementSession ||
+    request !== managementLoad
+  )
+    return;
+  const rowsFrom = (result) =>
+    result.status === "fulfilled"
+      ? result.value.docs.map((snapshot) => ({
+          ...snapshot.data(),
+          id: snapshot.id,
+        }))
+      : [];
+  users = rowsFrom(results[0]);
+  budgets = rowsFrom(results[1]);
+  managementReports = rowsFrom(results[2]);
+  if (results[2].status === "rejected")
+    alert("Cannot load management reports: " + results[2].reason.message);
+  rebuildManagementReports();
+  renderAll();
 }
 
-function bFor(uid, fy) {
+function bFor(uid, fy, excludeId = "") {
   const b = budgets.find((x) => x.userId === uid && x.fiscalYear === fy),
     amount = +(b?.budgetAmount || 0),
-    mine = reports.filter((r) => r.userId === uid && reportFy(r) === fy),
+    mine = reports.filter(
+      (r) => r.userId === uid && reportFy(r) === fy && r.id !== excludeId,
+    ),
     used = mine
       .filter((r) =>
         [
           "Manager Approved",
           "Finance Processing",
+          "Reimbursement Processing",
           "Reimbursed",
           "Closed",
         ].includes(r.status),
@@ -106,22 +162,26 @@ function fyList() {
   const n = +fiscal().replace("FY", "");
   return ["FY" + (n - 1), "FY" + n, "FY" + (n + 1)];
 }
-function filter() {
+function filter(scope = "mgmt") {
   return {
-    fy: $("mgmtFyFilter")?.value || "All",
-    st: $("mgmtStatusFilter")?.value || "All",
-    q: ($("mgmtEmployeeFilter")?.value || "").toLowerCase().trim(),
+    fy: $(scope + "FyFilter")?.value || "All",
+    st: $(scope + "StatusFilter")?.value || "All",
+    q: ($(scope + "EmployeeFilter")?.value || "").toLowerCase().trim(),
+    month: $(scope + "MonthFilter")?.value || "",
+    event: $(scope + "EventFilter")?.value || "submittedAt",
   };
 }
-function rows() {
-  const f = filter();
+function rows(scope = "mgmt") {
+  const f = filter(scope);
   return reports.filter((r) => {
     const m = r.meta || {},
       txt = (m.employee + " " + r.userEmail + " " + m.purpose).toLowerCase();
     return (
+      (scope !== "mgmt" || r.userId !== me?.uid) &&
       (f.fy === "All" || reportFy(r) === f.fy) &&
       (f.st === "All" || r.status === f.st) &&
-      (!f.q || txt.includes(f.q))
+      (!f.q || txt.includes(f.q)) &&
+      (!f.month || timestampMonth(reportEventTime(r, f.event)) === f.month)
     );
   });
 }
@@ -134,7 +194,7 @@ function renderAll() {
     renderVisible();
     if ($("adminSubmittedCount"))
       $("adminSubmittedCount").textContent = reports.filter(
-        (r) => r.status === "Submitted",
+        (r) => r.status === "Submitted" && r.userId !== me?.uid,
       ).length;
     if ($("adminUserCount")) $("adminUserCount").textContent = users.length;
     emit("management-rendered");
@@ -142,26 +202,33 @@ function renderAll() {
 }
 
 function injectFilter() {
-  if ($("mgmtFilterBox")) return;
-  const grid = document.querySelector("#admin .admin-grid");
-  if (!grid) return;
-  const box = document.createElement("div");
-  box.id = "mgmtFilterBox";
-  box.className = "card mgmt-filter";
-  box.innerHTML = `<label>Fiscal Year<select id="mgmtFyFilter"><option>All</option>${fyList()
-    .map((x) => `<option>${x}</option>`)
-    .join(
-      "",
-    )}</select></label><label>Status<select id="mgmtStatusFilter"><option>All</option><option>Submitted</option><option>Manager Approved</option><option>Finance Processing</option><option>Reimbursed</option><option>Rejected</option><option>Revision Requested</option><option>Closed</option></select></label><label>Employee / Email<input id="mgmtEmployeeFilter" placeholder="Search"></label><div class="mgmt-actions"><button class="secondary" id="mgmtApply">Apply</button><button class="secondary" id="mgmtClear">Clear</button></div><button id="exportCsvBtn">Export CSV</button>`;
-  grid.after(box);
-  $("mgmtApply").onclick = renderAll;
-  $("mgmtClear").onclick = () => {
-    $("mgmtFyFilter").value = "All";
-    $("mgmtStatusFilter").value = "All";
-    $("mgmtEmployeeFilter").value = "";
-    renderAll();
-  };
-  $("exportCsvBtn").onclick = exportCsv;
+  for (const [prefix, hostId] of [
+    ["mgmt", "managementReviewFilters"],
+    ["allReports", "managementReportFilters"],
+  ]) {
+    if ($(prefix + "FilterBox")) continue;
+    const host = $(hostId);
+    if (!host) continue;
+    const box = document.createElement("div");
+    box.id = prefix + "FilterBox";
+    box.className = "card mgmt-filter";
+    box.innerHTML = `<label>Fiscal Year<select id="${prefix}FyFilter"><option>All</option>${fyList()
+      .map((value) => `<option>${value}</option>`)
+      .join(
+        "",
+      )}</select></label><label>Status<select id="${prefix}StatusFilter">${["All", "Draft", "Submitted", "Manager Approved", "Finance Processing", "Reimbursement Processing", "Reimbursed", "Rejected", "Revision Requested", "Closed"].map((value) => `<option>${value}</option>`).join("")}</select></label><label>Employee / Email<input id="${prefix}EmployeeFilter" placeholder="Search"></label><label>Event date<select id="${prefix}EventFilter">${REPORT_EVENTS.map(([key, label]) => `<option value="${key}">${label}</option>`).join("")}</select></label><label>Month<input type="month" id="${prefix}MonthFilter"><small>${REPORT_TIME_LABEL} · Blank = all months</small></label><div class="mgmt-actions"><button class="secondary" id="${prefix}Apply">Apply</button><button class="secondary" id="${prefix}Clear">Clear</button></div>${prefix === "allReports" ? '<button id="exportCsvBtn">Export CSV</button>' : ""}`;
+    host.appendChild(box);
+    $(prefix + "Apply").onclick = renderAll;
+    $(prefix + "Clear").onclick = () => {
+      $(prefix + "FyFilter").value = "All";
+      $(prefix + "StatusFilter").value = "All";
+      $(prefix + "EmployeeFilter").value = "";
+      $(prefix + "MonthFilter").value = "";
+      $(prefix + "EventFilter").value = "submittedAt";
+      renderAll();
+    };
+  }
+  if ($("exportCsvBtn")) $("exportCsvBtn").onclick = exportCsv;
 }
 function renderCompanyBudget() {
   let box = $("companyBudget");
@@ -169,7 +236,7 @@ function renderCompanyBudget() {
     box = document.createElement("div");
     box.id = "companyBudget";
     box.className = "mgmt-summary";
-    $("mgmtFilterBox")?.after(box);
+    $("managementBudgetSummary")?.appendChild(box);
   }
   const fy = $("budgetFySelect")?.value || fiscal(),
     totalBudget = budgets
@@ -182,6 +249,7 @@ function renderCompanyBudget() {
           [
             "Manager Approved",
             "Finance Processing",
+            "Reimbursement Processing",
             "Reimbursed",
             "Closed",
           ].includes(r.status),
@@ -250,12 +318,58 @@ window.saveBudget = async (uid) => {
   }
 };
 async function saveAllBudgets() {
-  for (const i of document.querySelectorAll(".budget-input"))
-    await window.saveBudget(i.id.replace("budget-", ""));
+  if (!me || !isAdmin()) return false;
+  const actor = me.uid,
+    fy = $("budgetFySelect").value;
+  const values = [...document.querySelectorAll(".budget-input")].map(
+    (input) => ({
+      uid: input.id.replace("budget-", ""),
+      amount: Number(input.value || 0),
+    }),
+  );
+  if (
+    values.some((value) => !Number.isFinite(value.amount) || value.amount < 0)
+  ) {
+    alert("Budget amounts must be zero or greater.");
+    return false;
+  }
+  try {
+    for (let start = 0; start < values.length; start += 400) {
+      if (me?.uid !== actor || !isAdmin()) return false;
+      const batch = writeBatch(db);
+      for (const value of values.slice(start, start + 400)) {
+        const user = users.find((entry) => entry.id === value.uid);
+        batch.set(
+          doc(db, "budgets", value.uid + "_" + fy),
+          {
+            userId: value.uid,
+            userEmail: user?.email || "",
+            fiscalYear: fy,
+            currency: "HKD",
+            budgetAmount: value.amount,
+            updatedAt: serverTimestamp(),
+            updatedBy: actor,
+          },
+          { merge: true },
+        );
+      }
+      await batch.commit();
+    }
+    if (me?.uid === actor) await loadData();
+    alert("Budgets saved and recalculated.");
+    return true;
+  } catch (error) {
+    alert(
+      "Cannot save all budgets: " +
+        error.message +
+        ". Refresh to check saved balances.",
+    );
+    return false;
+  }
 }
 function rowHtml(r) {
   const m = r.meta || {},
-    b = bFor(r.userId, reportFy(r)),
+    b = bFor(r.userId, reportFy(r), r.id),
     after = b.available - rawTotal(r),
     actions = [];
   if ((isAdmin() || isManager()) && r.status === "Submitted")
@@ -266,7 +380,10 @@ function rowHtml(r) {
     actions.push(
       `<button class="secondary" onclick="financeAction('${r.id}','Finance Processing')">Process</button>`,
     );
-  if ((isAdmin() || isFinance()) && r.status === "Finance Processing")
+  if (
+    (isAdmin() || isFinance()) &&
+    ["Finance Processing", "Reimbursement Processing"].includes(r.status)
+  )
     actions.push(
       `<button class="secondary" onclick="financeAction('${r.id}','Reimbursed')">Reimbursed</button>`,
     );
@@ -284,13 +401,20 @@ function renderQueue() {
           "Submitted",
           "Manager Approved",
           "Finance Processing",
+          "Reimbursement Processing",
           "Rejected",
           "Revision Requested",
+          "Reimbursed",
+          "Closed",
         ].includes(r.status)
       : isFinance()
-        ? ["Manager Approved", "Finance Processing", "Reimbursed"].includes(
-            r.status,
-          )
+        ? [
+            "Manager Approved",
+            "Finance Processing",
+            "Reimbursement Processing",
+            "Reimbursed",
+            "Closed",
+          ].includes(r.status)
         : false,
   );
   const groups = [
@@ -301,7 +425,9 @@ function renderQueue() {
     ],
     [
       "Reimbursement Processing",
-      base.filter((r) => r.status === "Finance Processing"),
+      base.filter((r) =>
+        ["Finance Processing", "Reimbursement Processing"].includes(r.status),
+      ),
     ],
     [
       "Reviewed / Closed",
@@ -328,15 +454,17 @@ function renderVisible() {
   tb.closest("table").querySelector("thead").innerHTML =
     "<tr><th>Report No.</th><th>Employee</th><th>Purpose</th><th>FY</th><th>Status</th><th>User</th><th>Total</th><th>Action</th></tr>";
   tb.innerHTML =
-    rows()
+    rows("allReports")
       .map((r) => {
         const m = r.meta || {};
-        return `<tr><td><span class="report-no">${esc(reportLabel(r))}</span></td><td>${esc(m.employee || "-")}</td><td>${esc(m.purpose || "-")}</td><td>${reportFy(r)}</td><td><span class="mgmt-chip ${statusCls(r.status)}">${esc(dispStatus(r.status))}</span></td><td>${esc(r.userEmail || "-")}</td><td>${money(rawTotal(r))}</td><td><button class="review-btn" onclick="reviewReport('${r.id}')">Review</button></td></tr>`;
+        return `<tr><td><span class="report-no">${esc(reportLabel(r))}</span></td><td>${esc(m.employee || "-")}${r.userId === me?.uid ? ' <span class="mgmt-chip gray my-report-badge">My report</span>' : ""}</td><td>${esc(m.purpose || "-")}</td><td>${reportFy(r)}</td><td><span class="mgmt-chip ${statusCls(r.status)}">${esc(dispStatus(r.status))}</span></td><td>${esc(r.userEmail || "-")}</td><td>${money(rawTotal(r))}</td><td><button class="review-btn" onclick="reviewReport('${r.id}')">Review</button></td></tr>`;
       })
       .join("") || '<tr><td colspan="8">No reports found.</td></tr>';
 }
 window.reviewReport = async (id, receiptsOnly = false) => {
-  let r = reports.find((x) => x.id === id);
+  let r =
+    personalReports.find((x) => x.id === id) ||
+    reports.find((x) => x.id === id);
   if (!r) {
     try {
       r = await window.getReportById(id);
@@ -348,22 +476,126 @@ window.reviewReport = async (id, receiptsOnly = false) => {
   if (!r) return false;
   const m = r.meta || {},
     items = r.items || [],
-    b = bFor(r.userId, reportFy(r));
+    b = bFor(r.userId, reportFy(r), r.id);
   const modal = document.createElement("div");
   modal.className = "review-modal";
-  modal.innerHTML = `<div class="review-box"><div class="review-head"><div><h2>${receiptsOnly ? "Receipt Review" : "Expense Report Review"}</h2><p class="muted"><span class="report-no">${esc(reportLabel(r))}</span> · ${esc(dispStatus(r.status))}</p></div><button class="ghost" onclick="this.closest('.review-modal').remove()">Close</button></div>${receiptsOnly ? "" : `<div class="review-grid"><div class="review-field"><b>Employee</b>${esc(m.employee || r.userEmail || "-")}</div><div class="review-field"><b>Purpose</b>${esc(m.purpose || "-")}</div><div class="review-field"><b>Total</b>${money(rawTotal(r))}</div><div class="review-field"><b>Available after claim</b>${money(b.available - rawTotal(r))}</div></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Home Currency</th><th>Amount</th><th>HKD Amount</th><th>Ref</th></tr></thead><tbody>${items.map((it, i) => `<tr><td>${it.date || "-"}</td><td>${esc(it.desc || "-")}</td><td>${esc(it.category || "-")}</td><td>${esc(it.currency || "-")}</td><td>${Number(it.amount || 0).toFixed(2)}</td><td>${money((+it.amount || 0) * (+it.fx || 0))}</td><td>R${String(i + 1).padStart(2, "0")}</td></tr>`).join("")}</tbody></table></div>`}<h3>Receipts</h3><div class="receipt-grid">${
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-label", "Expense report details");
+  modal.innerHTML = `<div class="review-box"><div class="review-head"><div><h2>${receiptsOnly ? "Receipt Review" : "Expense Report Review"}</h2><p class="muted"><span class="report-no">${esc(reportLabel(r))}</span> · ${esc(dispStatus(r.status))}</p></div><div class="review-actions"><button type="button" class="review-close" data-review-close aria-label="Close report">✕ Close</button></div></div>${receiptsOnly ? "" : `<div class="review-grid"><div class="review-field"><b>Employee</b>${esc(m.employee || r.userEmail || "-")}</div><div class="review-field"><b>Purpose</b>${esc(m.purpose || "-")}</div><div class="review-field"><b>Total</b>${money(rawTotal(r))}</div>${canManage() ? `<div class="review-field"><b>Available after claim</b>${money(b.available - rawTotal(r))}</div>` : ""}</div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Home Currency</th><th>Amount</th><th>HKD Amount</th><th>Ref</th></tr></thead><tbody>${items.map((it, i) => `<tr><td>${esc(formatReportDate(it.date))}</td><td>${esc(it.desc || "-")}</td><td>${esc(it.category || "-")}</td><td>${esc(it.currency || "-")}</td><td>${Number(it.amount || 0).toFixed(2)}</td><td>${money((+it.amount || 0) * (+it.fx || 0))}</td><td>R${String(i + 1).padStart(2, "0")}</td></tr>`).join("")}</tbody></table></div>`}${[
+    ["Manager comment", r.managerComment],
+    ["Finance remark", r.financeRemark],
+    ["Payment reference", r.paymentReference],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => `<p><b>${label}:</b> ${esc(value)}</p>`)
+    .join("")}<h3>Receipts</h3><div class="receipt-grid">${
     items
-      .filter((x) => x.receiptData)
+      .map((it, index) => ({ it, index }))
+      .filter(({ it }) => it.receiptData)
       .map(
-        (it, i) =>
-          `<div class="receipt-item"><p><b>R${String(i + 1).padStart(2, "0")}</b> ${esc(it.desc || "Expense item")}</p><img src="${it.receiptData}"></div>`,
+        ({ it, index: i }) =>
+          `<div class="receipt-item"><p><b>R${String(i + 1).padStart(2, "0")}</b> ${esc(it.desc || "Expense item")}</p><img src="${esc(it.receiptData)}"></div>`,
       )
       .join("") || '<p class="muted">No receipt attached.</p>'
   }</div></div>`;
+  const timeline = document.createElement("section");
+  timeline.className = "workflow-timeline";
+  timeline.innerHTML = `<h3>Workflow timeline <small>${REPORT_TIME_LABEL}</small></h3><dl class="workflow-milestones">${REPORT_EVENTS.filter(
+    ([event]) =>
+      event !== "closedAt" ||
+      r.status === "Closed" ||
+      reportEventTime(r, event),
+  )
+    .map(
+      ([event, label]) =>
+        `<div><dt>${esc(label)}</dt><dd>${esc(formatReportTimestamp(reportEventTime(r, event)))}</dd></div>`,
+    )
+    .join(
+      "",
+    )}</dl><p class="small muted">Submission time reflects the latest successful submission. Missing historical times are not inferred from edits.</p>`;
+  modal.querySelector(".review-head").after(timeline);
+  modal.querySelector("[data-review-close]").onclick = () => modal.remove();
+  if (
+    !receiptsOnly &&
+    ["Draft", "Revision Requested"].includes(r.status) &&
+    (r.userId === me?.uid || isAdmin())
+  ) {
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "secondary";
+    edit.dataset.reviewEdit = r.id;
+    edit.textContent = "Edit report";
+    edit.onclick = async () => {
+      edit.disabled = true;
+      try {
+        if (await window.openReport(r.id)) modal.remove();
+      } finally {
+        edit.disabled = false;
+      }
+    };
+    modal.querySelector(".review-actions").appendChild(edit);
+  }
   document.body.appendChild(modal);
   emit("review-opened", { modal, report: r });
   return true;
 };
+const actionLocks = new Set();
+async function commitAction(report, kind, payload, detail) {
+  if (actionLocks.has(report.id)) return false;
+  actionLocks.add(report.id);
+  const actor = me,
+    reportRef = doc(db, "expenseReports", report.id),
+    logRef = doc(
+      collection(db, kind === "manager" ? "approvalLogs" : "paymentLogs"),
+    );
+  try {
+    await runTransaction(db, async (transaction) => {
+      const actorProfile = await transaction.get(doc(db, "users", actor.uid));
+      const role = actorProfile.data()?.role;
+      if (
+        !actorProfile.exists() ||
+        actorProfile.data().active === false ||
+        !(
+          kind === "manager" ? ["admin", "manager"] : ["admin", "finance"]
+        ).includes(role)
+      )
+        throw new Error(
+          "Your access changed. Sign out and sign in again before reviewing reports.",
+        );
+      const snapshot = await transaction.get(reportRef);
+      if (!snapshot.exists() || snapshot.data().status !== report.status)
+        throw new Error(
+          "This report has changed. Refresh and review its current status.",
+        );
+      transaction.set(reportRef, payload, { merge: true });
+      transaction.set(logRef, {
+        reportId: report.id,
+        reportNo: reportLabel(report),
+        action: payload.status,
+        actionBy: actor.uid,
+        actionByEmail: actor.email,
+        ...detail,
+        createdAt: serverTimestamp(),
+      });
+    });
+    if (me?.uid === actor.uid) {
+      emit(kind + "-action", {
+        id: report.id,
+        status: payload.status,
+        user: actor,
+      });
+      await loadData();
+    }
+    return true;
+  } catch (error) {
+    alert("Action was not completed: " + error.message);
+    await loadData();
+    return false;
+  } finally {
+    actionLocks.delete(report.id);
+  }
+}
 window.managerAction = async (id, status, batchComment) => {
   if (!isAdmin() && !isManager()) {
     alert("Manager or Admin access required.");
@@ -376,7 +608,7 @@ window.managerAction = async (id, status, batchComment) => {
     !["Manager Approved", "Rejected", "Revision Requested"].includes(status)
   )
     return false;
-  const b = bFor(r.userId, reportFy(r)),
+  const b = bFor(r.userId, reportFy(r), r.id),
     over = rawTotal(r) > b.available;
   let c =
     batchComment === undefined
@@ -390,11 +622,13 @@ window.managerAction = async (id, status, batchComment) => {
       : batchComment;
   if (c === null) return false;
   c = c.trim();
-  if ((status !== "Manager Approved" || over) && !c)
-    return alert("Comment is required.");
-  const batch = writeBatch(db);
-  batch.set(
-    doc(db, "expenseReports", id),
+  if ((status !== "Manager Approved" || over) && !c) {
+    alert("Comment is required.");
+    return false;
+  }
+  return commitAction(
+    r,
+    "manager",
     {
       status,
       managerStatus: status === "Manager Approved" ? "Approved" : status,
@@ -402,23 +636,13 @@ window.managerAction = async (id, status, batchComment) => {
       managerEmail: me.email,
       managerComment: c || "",
       managerActionAt: serverTimestamp(),
+      ...(status === "Manager Approved"
+        ? { managerApprovedAt: serverTimestamp() }
+        : {}),
       updatedAt: serverTimestamp(),
     },
-    { merge: true },
+    { comment: c || "" },
   );
-  batch.set(doc(collection(db, "approvalLogs")), {
-    reportId: id,
-    reportNo: reportLabel(r),
-    action: status,
-    actionBy: me.uid,
-    actionByEmail: me.email,
-    comment: c || "",
-    createdAt: serverTimestamp(),
-  });
-  await batch.commit();
-  emit("manager-action", { id, status, user: me });
-  await loadData();
-  return true;
 };
 window.managerApprove = (id) => window.managerAction(id, "Manager Approved");
 window.financeAction = async (id, status) => {
@@ -442,10 +666,13 @@ window.financeAction = async (id, status) => {
   let ref = prompt(paid ? "Payment reference required:" : "Finance remark:");
   if (ref === null) return false;
   ref = ref.trim();
-  if (paid && !ref) return alert("Payment reference is required.");
-  const batch = writeBatch(db);
-  batch.set(
-    doc(db, "expenseReports", id),
+  if (paid && !ref) {
+    alert("Payment reference is required.");
+    return false;
+  }
+  return commitAction(
+    r,
+    "finance",
     {
       status,
       financeStatus: status,
@@ -454,23 +681,15 @@ window.financeAction = async (id, status) => {
       paymentReference: paid ? ref : r.paymentReference || "",
       financeRemark: ref || "",
       financeActionAt: serverTimestamp(),
+      ...(r.status === "Manager Approved" && processing(status)
+        ? { financeApprovedAt: serverTimestamp() }
+        : {}),
+      ...(status === "Reimbursed" ? { reimbursedAt: serverTimestamp() } : {}),
+      ...(status === "Closed" ? { closedAt: serverTimestamp() } : {}),
       updatedAt: serverTimestamp(),
     },
-    { merge: true },
+    { reference: ref || "" },
   );
-  batch.set(doc(collection(db, "paymentLogs")), {
-    reportId: id,
-    reportNo: reportLabel(r),
-    action: status,
-    actionBy: me.uid,
-    actionByEmail: me.email,
-    reference: ref || "",
-    createdAt: serverTimestamp(),
-  });
-  await batch.commit();
-  emit("finance-action", { id, status, user: me });
-  await loadData();
-  return true;
 };
 function readForm() {
   return [...document.querySelectorAll(".item")].map((it, i) => {
@@ -515,13 +734,27 @@ window.exportPdf = async () => {
   pdf.text("Destination: " + ($("destination")?.value || "-"), 14, y + 34);
   pdf.text(
     "Period: " +
-      ($("fromDate")?.value || "-") +
+      formatReportDate($("fromDate")?.value) +
       " to " +
-      ($("toDate")?.value || "-"),
+      formatReportDate($("toDate")?.value),
     14,
     y + 42,
   );
   y = 64;
+  pdf.setFontSize(8);
+  pdf.text("Workflow timeline - " + REPORT_TIME_LABEL, 14, y);
+  y += 6;
+  for (const [event, label] of REPORT_EVENTS.filter(
+    ([event]) => event !== "closedAt" || rep.closedAt,
+  )) {
+    pdf.text(
+      label + ": " + formatReportTimestamp(reportEventTime(rep, event)),
+      14,
+      y,
+    );
+    y += 5;
+  }
+  y += 4;
   pdf.setFont("helvetica", "bold");
   [
     ["Date", 14],
@@ -540,7 +773,7 @@ window.exportPdf = async () => {
       pdf.addPage();
       y = 18;
     }
-    pdf.text(x.date || "-", 14, y);
+    pdf.text(formatReportDate(x.date), 14, y);
     pdf.text(String(x.desc).slice(0, 26), 39, y);
     pdf.text(String(x.cat).slice(0, 16), 82, y);
     pdf.text(x.cur, 113, y);
@@ -590,9 +823,10 @@ function exportCsv() {
       "Purpose",
       "Total HKD",
       "Payment Ref",
+      ...REPORT_EVENTS.map(([, label]) => label + " at - " + REPORT_TIME_LABEL),
     ],
     lines = [h.join(",")].concat(
-      rows().map((r) => {
+      rows("allReports").map((r) => {
         const m = r.meta || {};
         return [
           reportLabel(r),
@@ -603,6 +837,11 @@ function exportCsv() {
           m.purpose || "",
           rawTotal(r),
           r.paymentReference || "",
+          ...REPORT_EVENTS.map(([event]) =>
+            reportEventTime(r, event)
+              ? formatReportTimestamp(reportEventTime(r, event))
+              : "",
+          ),
         ]
           .map((x) => '"' + String(x).replaceAll('"', '""') + '"')
           .join(",");
@@ -623,19 +862,28 @@ on("report-opened", ({ report }) => {
   activeReportId = report.id;
 });
 on("reports-loaded", (data) => {
-  reports = data.reports;
+  if (!me || data.user?.uid !== me.uid) return;
+  personalReports = data.reports.filter((report) => report.userId === me.uid);
+  rebuildManagementReports();
   renderAll();
 });
 on("session", async (data) => {
+  managementSession++;
+  managementLoad++;
   me = data.user;
   profile = data.profile || { role: "user" };
   reports = [];
+  personalReports = [];
+  managementReports = [];
   users = [];
   budgets = [];
   activeReportId = "";
   if (me && canManage()) await loadData(false);
 });
 on("view-changed", ({ view }) => {
-  if (view === "admin") renderAll();
+  if (view === "admin") {
+    renderAll();
+    loadData(false);
+  }
 });
 window.refreshAdmin = loadData;

@@ -4,8 +4,14 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const { parseHTML } = require("linkedom");
 const source = fs.readFileSync("docs/report-dashboard.js", "utf8");
+const datesSource = fs.readFileSync("docs/report-dates.js", "utf8");
+const datesUrl =
+  "data:text/javascript;base64," + Buffer.from(datesSource).toString("base64");
 const helper = import(
-  "data:text/javascript;base64," + Buffer.from(source).toString("base64")
+  "data:text/javascript;base64," +
+    Buffer.from(source.replace("./report-dates.js", datesUrl)).toString(
+      "base64",
+    )
 );
 function fixture() {
   const { window, document } = parseHTML(
@@ -28,7 +34,13 @@ function fixture() {
     clearTimeout: () => {},
     MutationObserver: window.MutationObserver,
   });
-  vm.runInContext(source.replaceAll("export ", ""), context);
+  vm.runInContext(datesSource.replaceAll("export ", ""), context);
+  vm.runInContext(
+    source
+      .replace(/^import .*report-dates.js.*;\n/, "")
+      .replaceAll("export ", ""),
+    context,
+  );
   vm.runInContext(
     fs.readFileSync("docs/report-view-toggle-v27.js", "utf8"),
     context,
@@ -172,9 +184,11 @@ test("Report No column and Open action stay bound to document ID after sorting",
     "ER-FY2027-1",
   );
   f.document.querySelector('[data-report-open="a"]').click();
-  assert.deepEqual(f.opened, ["a"]);
+  assert.deepEqual(f.reviews, ["a"]);
+  f.document.querySelector('tr[data-report-id="b"] .cell-purpose').click();
+  assert.deepEqual(f.reviews, ["a", "b"]);
   f.list.querySelector('[data-report-id="b"]').click();
-  assert.deepEqual(f.opened, ["a", "b"]);
+  assert.deepEqual(f.opened, ["b"]);
 });
 test("table signature includes report number changes", () => {
   const f = fixture(),
@@ -208,7 +222,7 @@ test("management no longer writes dashboard HTML or allocates numbers during rea
     management,
     /function renderDashboard\(|assignReportNumbers|setInterval\([^\n]*renderAll/,
   );
-  assert.match(management, /await window\.refreshDashboardReports\?\.\(\)/);
+  assert.match(management, /window\.refreshDashboardReports\?\.\(\)/);
   const core = fs.readFileSync("docs/firebase-app.js", "utf8");
   assert.doesNotMatch(core, /sort\(\(a,b\)=>\(b.updatedAt/);
 });

@@ -70,13 +70,13 @@ function renderSummary() {
     (s, r) => s + (r.items || []).filter(hasReceipt).length,
     0,
   );
-  box.innerHTML = `<div class="summary-title-row"><div><h2>Expense Report Summary</h2><p class="muted">Summary of reports visible to your account.</p></div><label>Fiscal Year<select id="phase1FyFilter">${fyOptions}</select></label></div><div class="dash-summary"><div class="card"><div class="muted">Total Reports</div><strong>${data.length}</strong></div><div class="card"><div class="muted">Pending Manager</div><strong>${submitted.length}</strong><p class="muted">${money(pending)}</p></div><div class="card"><div class="muted">Manager Approved</div><strong>${approved.length}</strong></div><div class="card"><div class="muted">Processing</div><strong>${processing.length}</strong></div><div class="card"><div class="muted">Reimbursed</div><strong>${reimbursed.length}</strong></div><div class="card"><div class="muted">Total Claimed</div><strong>${money(total)}</strong><p class="muted">${receiptCount} receipt(s)</p></div></div>`;
+  box.innerHTML = `<div class="summary-title-row"><div><h2>Expense Report Summary</h2><p class="muted">Summary of your personal expense reports only.</p></div><label>Fiscal Year<select id="phase1FyFilter">${fyOptions}</select></label></div><div class="dash-summary"><div class="card"><div class="muted">Total Reports</div><strong>${data.length}</strong></div><div class="card"><div class="muted">Pending Manager</div><strong>${submitted.length}</strong><p class="muted">${money(pending)}</p></div><div class="card"><div class="muted">Manager Approved</div><strong>${approved.length}</strong></div><div class="card"><div class="muted">Processing</div><strong>${processing.length}</strong></div><div class="card"><div class="muted">Reimbursed</div><strong>${reimbursed.length}</strong></div><div class="card"><div class="muted">Total Claimed</div><strong>${money(total)}</strong><p class="muted">${receiptCount} receipt(s)</p></div></div>`;
   $("phase1FyFilter").onchange = renderSummary;
   emit("summary-rendered");
 }
 
 on("reports-loaded", (data) => {
-  reports = data.reports;
+  reports = data.reports.filter((report) => report.userId === data.user?.uid);
   renderSummary();
 });
 on("session", (data) => {

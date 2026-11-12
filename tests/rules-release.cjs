@@ -257,14 +257,20 @@ async function audit(file, label) {
         managerId: "manager",
         managerEmail: "manager@example.test",
         managerComment: "Approved",
-        managerActionAt: Timestamp.fromMillis(2000),
+        managerActionAt: serverTimestamp(),
+        managerApprovedAt: serverTimestamp(),
         updatedAt: Timestamp.fromMillis(2000),
         fiscalYear: "FY2027",
         totalHkd: 50,
       }),
     );
     await check("Manager must supply rejection comment", false, () =>
-      updateDoc(ref("manager"), { status: "Rejected", managerComment: "" }),
+      updateDoc(ref("manager"), {
+        status: "Rejected",
+        managerId: "manager",
+        managerActionAt: serverTimestamp(),
+        managerComment: "",
+      }),
     );
     await check("Manager cannot edit expense items", false, () =>
       updateDoc(ref("manager"), { items: [{ amount: 400, fx: 0.25 }] }),
@@ -283,7 +289,8 @@ async function audit(file, label) {
           financeEmail: "finance@example.test",
           financeRemark: "Processing",
           updatedAt: Timestamp.fromMillis(2000),
-          financeActionAt: Timestamp.fromMillis(2000),
+          financeActionAt: serverTimestamp(),
+          financeApprovedAt: serverTimestamp(),
         }),
       { status: "Manager Approved" },
     );
@@ -298,7 +305,8 @@ async function audit(file, label) {
           financeEmail: "finance@example.test",
           financeRemark: "Processing",
           updatedAt: Timestamp.fromMillis(2000),
-          financeActionAt: Timestamp.fromMillis(2000),
+          financeActionAt: serverTimestamp(),
+          financeApprovedAt: serverTimestamp(),
         }),
       { status: "Manager Approved", category: "app-compatibility" },
     );
@@ -315,6 +323,9 @@ async function audit(file, label) {
         updateDoc(ref("finance"), {
           status: "Reimbursed",
           paymentReference: "",
+          financeBy: "finance",
+          financeActionAt: serverTimestamp(),
+          reimbursedAt: serverTimestamp(),
         }),
       { status: "Reimbursement Processing" },
     );
@@ -461,6 +472,7 @@ async function audit(file, label) {
         status: "Rejected",
         managerId: "manager",
         managerComment: "  \t ",
+        managerActionAt: serverTimestamp(),
       }),
     );
     await check(
@@ -471,6 +483,8 @@ async function audit(file, label) {
           status: "Reimbursed",
           financeBy: "finance",
           paymentReference: "  \t ",
+          financeActionAt: serverTimestamp(),
+          reimbursedAt: serverTimestamp(),
         }),
       { status: "Reimbursement Processing" },
     );
@@ -484,6 +498,7 @@ async function audit(file, label) {
           status: "Manager Approved",
           managerId: "manager",
           managerActionAt: serverTimestamp(),
+          managerApprovedAt: serverTimestamp(),
         });
         batch.set(ref("manager", "approvalLogs", "atomic"), {
           reportId: "target",
@@ -504,6 +519,8 @@ async function audit(file, label) {
           status: "Reimbursed",
           financeBy: "finance",
           paymentReference: "BANK-123",
+          financeActionAt: serverTimestamp(),
+          reimbursedAt: serverTimestamp(),
         });
         batch.set(ref("finance", "paymentLogs", "atomic"), {
           reportId: "target",
@@ -523,6 +540,8 @@ async function audit(file, label) {
         batch.update(ref("manager"), {
           status: "Manager Approved",
           managerId: "manager",
+          managerActionAt: serverTimestamp(),
+          managerApprovedAt: serverTimestamp(),
         });
         batch.set(ref("manager", "approvalLogs", "invalid"), {
           reportId: "target",
@@ -551,6 +570,8 @@ async function audit(file, label) {
         return updateDoc(ref("manager"), {
           status: "Manager Approved",
           managerId: "manager",
+          managerActionAt: serverTimestamp(),
+          managerApprovedAt: serverTimestamp(),
         });
       },
     );
@@ -588,10 +609,91 @@ async function audit(file, label) {
           totalHkd: 50,
           fiscalYear: "FY2027",
           status: "Submitted",
+          submittedAt: serverTimestamp(),
         });
       },
       { status: "Draft" },
     );
+    await check(
+      "Owner cannot backdate submission",
+      false,
+      () =>
+        updateDoc(ref("owner"), {
+          status: "Submitted",
+          submittedAt: Timestamp.fromMillis(1000),
+        }),
+      { status: "Draft" },
+    );
+    await check("Manager cannot backdate approval", false, () =>
+      updateDoc(ref("manager"), {
+        status: "Manager Approved",
+        managerId: "manager",
+        managerActionAt: serverTimestamp(),
+        managerApprovedAt: Timestamp.fromMillis(1000),
+      }),
+    );
+    await check(
+      "Finance cannot backdate review",
+      false,
+      () =>
+        updateDoc(ref("finance"), {
+          status: "Finance Processing",
+          financeBy: "finance",
+          financeActionAt: serverTimestamp(),
+          financeApprovedAt: Timestamp.fromMillis(1000),
+        }),
+      { status: "Manager Approved" },
+    );
+    await check(
+      "Finance cannot backdate reimbursement",
+      false,
+      () =>
+        updateDoc(ref("finance"), {
+          status: "Reimbursed",
+          financeBy: "finance",
+          paymentReference: "BANK-TEST",
+          financeActionAt: serverTimestamp(),
+          reimbursedAt: Timestamp.fromMillis(1000),
+        }),
+      { status: "Finance Processing" },
+    );
+    await check(
+      "Draft edit cannot overwrite submission time",
+      false,
+      () => updateDoc(ref("owner"), { submittedAt: serverTimestamp() }),
+      { status: "Draft" },
+    );
+    await check(
+      "Finance can close Processing with server time and payment reference",
+      true,
+      () =>
+        updateDoc(ref("finance"), {
+          status: "Closed",
+          financeBy: "finance",
+          paymentReference: "BANK-CLOSE",
+          financeActionAt: serverTimestamp(),
+          closedAt: serverTimestamp(),
+        }),
+      { status: "Finance Processing" },
+    );
+    await check("Admin can reject Submitted and create its audit atomically", true, async () => {
+      const batch = writeBatch(actors.admin);
+      batch.update(ref("admin"), {status:"Rejected",managerStatus:"Rejected",managerId:"admin",managerEmail:"admin@example.test",managerComment:"Not a business expense",managerActionAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      batch.set(ref("admin","approvalLogs","admin-reject"), {reportId:"target",action:"Rejected",actionBy:"admin",createdAt:serverTimestamp()});
+      await batch.commit();
+    });
+    for (const role of ['admin','manager']) {
+      await check(role+' may reject an incomplete legacy report without changing its amounts', true, async()=>{
+        await env.withSecurityRulesDisabled(async context=>{const report=base('Submitted');delete report.totalHkd;delete report.createdAt;await setDoc(doc(context.firestore(),'expenseReports','target'),report);});
+        const batch=writeBatch(actors[role]);
+        batch.update(ref(role),{status:'Rejected',managerStatus:'Rejected',managerId:role,managerComment:'Missing information',managerActionAt:serverTimestamp(),updatedAt:serverTimestamp()});
+        batch.set(ref(role,'approvalLogs','legacy-reject'),{reportId:'target',action:'Rejected',actionBy:role,createdAt:serverTimestamp()});await batch.commit();
+      });
+      await check(role+' cannot change amounts through the legacy rejection exception', false, async()=>{
+        await env.withSecurityRulesDisabled(async context=>{const report=base('Submitted');delete report.createdAt;await setDoc(doc(context.firestore(),'expenseReports','target'),report);});
+        await updateDoc(ref(role),{status:'Rejected',totalHkd:999,managerId:role,managerComment:'Missing info',managerActionAt:serverTimestamp()});
+      });
+    }
     await check("Owner cannot delete reports", false, () =>
       deleteDoc(ref("owner")),
     );

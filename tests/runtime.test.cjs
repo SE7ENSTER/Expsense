@@ -125,7 +125,7 @@ test("manager approval updates shared UI and logs before emitting notifications"
     1,
   );
   assert.equal(
-    r.document.querySelector("[data-report-row] .pill").getAttribute("title"),
+    r.document.querySelector("#reviewReports .mgmt-chip").textContent,
     "Manager Approved",
   );
   assert.deepEqual(r.errors, []);
@@ -144,7 +144,7 @@ test("cancelled manager action emits no success event or notification", async ()
   assert.equal(r.writes.length, 0);
   assert.deepEqual(r.errors, []);
 });
-test("finance reimbursement moves the report from active list to History without dashboard rewriting", async () => {
+test("finance reimbursement updates Management while personal History stays own-only", async () => {
   const r = await createRuntime({
     role: "finance",
     uid: "finance-1",
@@ -154,9 +154,10 @@ test("finance reimbursement moves the report from active list to History without
   assert.equal(await r.window.financeAction("1", "Reimbursed"), true);
   await r.settle();
   assert.equal(r.document.querySelector("[data-report-row]"), null);
-  assert.equal(
-    r.document.querySelector("[data-history-open]").dataset.historyOpen,
-    "1",
+  assert.equal(r.document.querySelector("[data-history-open]"), null);
+  assert.match(
+    r.document.getElementById("adminReports").textContent,
+    /Reimbursed/,
   );
   assert.equal(
     [...r.data.keys()].filter((k) => k.startsWith("paymentLogs/")).length,
@@ -300,10 +301,8 @@ test("failed approval does not generate success notifications or logs", async ()
   });
   await r.login();
   r.failWrite();
-  await assert.rejects(
-    r.window.managerAction("1", "Manager Approved"),
-    /write failure/,
-  );
+  assert.equal(await r.window.managerAction("1", "Manager Approved"), false);
+  assert.match(r.alerts.at(-1), /Action was not completed:.*write failure/);
   await r.settle();
   assert.equal(r.writes.length, 0);
   assert.equal(r.data.get("expenseReports/1").status, "Submitted");
@@ -579,9 +578,10 @@ test("responsive report and management rows retain field labels and action contr
   assertLabels();
   r.document.querySelector('[data-report-open="1"]').click();
   await r.settle();
+  assert.ok(r.document.querySelector(".review-modal"));
   assert.equal(
     r.document.getElementById("editor").classList.contains("hide"),
-    false,
+    true,
   );
   assert.deepEqual(r.errors, []);
 });
@@ -677,7 +677,7 @@ test("History edits update compact fields and a shrinking final page returns to 
   assert.deepEqual(r.errors, []);
 });
 
-test("user and admin navigation omit System Status and retired links return to Overview", async () => {
+test("user and admin navigation omit System Status and retired links return to My Expenses", async () => {
   for (const role of ["user", "admin"]) {
     const r = await createRuntime({ role });
     await r.login();
@@ -696,7 +696,7 @@ test("user and admin navigation omit System Status and retired links return to O
     );
     assert.equal(
       r.document.getElementById("workspaceTitle").textContent,
-      "Overview",
+      "My Expenses",
     );
     assert.deepEqual(r.errors, []);
   }

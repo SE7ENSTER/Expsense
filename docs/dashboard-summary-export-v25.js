@@ -1,3 +1,4 @@
+import { formatReportDate } from "./report-dates.js";
 import { on } from "./app-events.js";
 let me = null,
   exportReports = [];
@@ -59,8 +60,8 @@ function rowsForExport() {
         "User Email": r.userEmail || "",
         Purpose: m.purpose || "",
         Destination: m.destination || "",
-        From: m.fromDate || "",
-        To: m.toDate || "",
+        From: formatReportDate(m.fromDate),
+        To: formatReportDate(m.toDate),
         "Total HKD": Number(total(r).toFixed(2)),
         Receipts: receiptCount(r),
         "Next Step": nextStep(r.status),
@@ -229,6 +230,6 @@ on("session", (data) => {
   exportReports = [];
 });
 on("reports-loaded", (data) => {
-  exportReports = data.reports;
+  exportReports = data.reports.filter((report) => report.userId === me?.uid);
 });
 on("summary-rendered", injectButtons);

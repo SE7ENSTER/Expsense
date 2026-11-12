@@ -1,8 +1,15 @@
+import { formatReportDate } from "./report-dates.js";
+import { showManagementPage } from "./management-pages.js";
 import { waitForUserProfile } from "./user-registration.js";
 import { auth, db } from "./firebase-client.js";
 import { emit } from "./app-events.js";
 import { prepareReceipt } from "./receipt-files.js";
 import { renderDashboardReports } from "./report-dashboard.js";
+import {
+  reserveReportNumber,
+  numberingYear,
+  runNumberedTransaction,
+} from "./report-numbering.js";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -189,40 +196,19 @@ function showProfile() {
 async function loadReports() {
   if (!user) return;
   try {
-    let qry;
-    if (isAdmin()) qry = collection(db, "expenseReports");
-    else if (isManager())
-      qry = query(
-        collection(db, "expenseReports"),
-        where("status", "in", [
-          "Submitted",
-          "Manager Approved",
-          "Rejected",
-          "Revision Requested",
-        ]),
-      );
-    else if (profile.role === "finance")
-      qry = query(
-        collection(db, "expenseReports"),
-        where("status", "in", [
-          "Manager Approved",
-          "Finance Processing",
-          "Reimbursement Processing",
-          "Reimbursed",
-          "Closed",
-        ]),
-      );
-    else
-      qry = query(
-        collection(db, "expenseReports"),
-        where("userId", "==", user.uid),
-      );
+    // Personal workspace always uses ownership, regardless of management role.
+    const qry = query(
+      collection(db, "expenseReports"),
+      where("userId", "==", user.uid),
+    );
     const version = sessionVersion,
       request = ++reportLoadVersion;
     const snap = await getDocs(qry);
     if (version !== sessionVersion || request !== reportLoadVersion)
       return reports;
-    reports = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+    reports = snap.docs
+      .map((d) => ({ ...d.data(), id: d.id }))
+      .filter((report) => report.userId === user.uid);
     dash();
     emit("reports-loaded", { reports, user, profile });
     return reports;
@@ -282,14 +268,22 @@ onAuthStateChanged(auth, async (u) => {
   }
 });
 window.showView = (view) => {
-  if (!["dashboard", "editor", "admin"].includes(view)) view = "dashboard";
-  ["dashboard", "editor", "admin"].forEach((id) => {
+  let managementPage;
+  if (view.startsWith("admin-")) {
+    managementPage = view.slice(6);
+    view = "admin";
+  }
+  if (view === "admin" && !canSeeAdmin()) view = "dashboard";
+  if (!["dashboard", "editor", "admin", "monthly-invoices"].includes(view))
+    view = "dashboard";
+  ["dashboard", "editor", "admin", "monthly-invoices"].forEach((id) => {
     q(id).classList.toggle("hide", id !== view);
     q("tab-" + id).classList.toggle("active", id === view);
   });
   if (view === "dashboard") dash();
   if (view === "editor") initReportIfNeeded();
-  emit("view-changed", { view });
+  if (view === "admin") managementPage = showManagementPage(managementPage);
+  emit("view-changed", { view, managementPage });
 };
 function initReportIfNeeded() {
   if (!current) window.newReport(false);
@@ -378,6 +372,27 @@ window.setFile = async (id, file) => {
   }
 };
 function render() {
+  q("workflowFeedback")?.remove();
+  const feedback = [
+    ["Manager comment", current?.managerComment],
+    ["Finance remark", current?.financeRemark],
+    ["Payment reference", current?.paymentReference],
+  ].filter(([, value]) => value);
+  if (feedback.length) {
+    const panel = document.createElement("section");
+    panel.id = "workflowFeedback";
+    panel.className = "card";
+    panel.setAttribute("aria-label", "Review feedback");
+    const title = document.createElement("h3");
+    title.textContent = "Review feedback";
+    panel.appendChild(title);
+    for (const [label, value] of feedback) {
+      const line = document.createElement("p");
+      line.textContent = label + ": " + value;
+      panel.appendChild(line);
+    }
+    q("editor").prepend(panel);
+  }
   const el = q("items");
   el.innerHTML = "";
   rows.forEach((r, i) => {
@@ -389,6 +404,17 @@ function render() {
   window.calc();
 }
 function updateFxPreviews() {
+  document.querySelectorAll("input[type=date]").forEach((input) => {
+    let output = input.nextElementSibling;
+    if (!output?.classList.contains("report-date-display")) {
+      output = document.createElement("small");
+      output.className = "report-date-display";
+      input.after(output);
+    }
+    output.textContent = input.value
+      ? formatReportDate(input.value)
+      : "DD MMM YYYY";
+  });
   document.querySelectorAll("[data-fx-preview]").forEach((output) => {
     const item = rows.find((row) => row.id === output.dataset.fxPreview);
     if (!item) return;
@@ -413,7 +439,7 @@ function updateFxPreviews() {
 }
 window.calc = function () {
   updateFxPreviews();
-  const rc = q("reportCurrency").value || "HKD";
+  const rc = "HKD";
   const total = rows.reduce((s, r) => s + (+r.amount || 0) * (+r.fx || 0), 0);
   const attached = rows.filter((r) => r.receiptData).length;
   const used = [...new Set(rows.map((r) => r.currency).filter(Boolean))];
@@ -476,6 +502,42 @@ window.saveReport = async (status = "Draft") => {
     alert("A submitted report must contain expenses with a positive total.");
     return false;
   }
+  if (status === "Submitted") {
+    const meta = readMeta(),
+      issues = [];
+    for (const [key, label] of [
+      ["employee", "Employee name"],
+      ["purpose", "Business purpose"],
+      ["destination", "Destination"],
+      ["fromDate", "From date"],
+      ["toDate", "To date"],
+    ]) {
+      if (!String(meta[key] || "").trim()) issues.push(label + " is required.");
+    }
+    const validDate = (value) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value || "") &&
+      Number.isFinite(Date.parse(value)) &&
+      new Date(value).toISOString().slice(0, 10) === value;
+    if (!validDate(meta.fromDate) || !validDate(meta.toDate))
+      issues.push("Enter valid report dates.");
+    if (meta.fromDate && meta.toDate && meta.toDate < meta.fromDate)
+      issues.push("To date cannot be before from date.");
+    rows.forEach((item, index) => {
+      const label = "Item " + (index + 1) + ": ";
+      if (!String(item.desc || "").trim())
+        issues.push(label + "description is required.");
+      if (!validDate(item.date))
+        issues.push(label + "a valid date is required.");
+      else if (item.date < meta.fromDate || item.date > meta.toDate)
+        issues.push(label + "date must be within the report period.");
+      if (!(Number(item.amount) > 0))
+        issues.push(label + "amount must be greater than zero.");
+    });
+    if (issues.length) {
+      alert(issues.join("\n"));
+      return false;
+    }
+  }
   saving = true;
   const version = sessionVersion,
     report = current || blankReport(),
@@ -487,7 +549,7 @@ window.saveReport = async (status = "Draft") => {
       "FY" +
       (date.getMonth() >= 10 ? date.getFullYear() + 1 : date.getFullYear());
     const data = {
-      ...report,
+      id: report.id,
       meta,
       fiscalYear,
       items: structuredClone(rows),
@@ -497,13 +559,48 @@ window.saveReport = async (status = "Draft") => {
         0,
       ),
       status,
-      userId: report.userId || user.uid,
-      userEmail: report.userEmail || user.email,
       updatedAt: serverTimestamp(),
     };
-    if (wasSaved) delete data.createdAt;
-    else data.createdAt = serverTimestamp();
-    await setDoc(doc(db, "expenseReports", report.id), data, { merge: true });
+    if (status === "Submitted") data.submittedAt = serverTimestamp();
+    if (!wasSaved) {
+      data.userId = user.uid;
+      data.userEmail = user.email;
+      data.createdAt = serverTimestamp();
+    }
+    await runNumberedTransaction(db, async (transaction, noteAllocation) => {
+      const ref = doc(db, "expenseReports", report.id);
+      const snapshot = await transaction.get(ref);
+      const existing = snapshot.exists() ? snapshot.data() : null;
+      delete data.reportNo;
+      delete data.runNumber;
+      delete data.numberingYear;
+      if (
+        existing &&
+        !isAdmin() &&
+        !["Draft", "Revision Requested"].includes(existing.status)
+      )
+        throw Error(
+          "This report has entered approval. Refresh before editing.",
+        );
+      if (existing) {
+        delete data.createdAt;
+        delete data.userId;
+        delete data.userEmail;
+      }
+      if (!(existing?.reportNo || existing?.runNumber)) {
+        const allocation = await reserveReportNumber(
+          transaction,
+          db,
+          report.id,
+          numberingYear(existing || data),
+          serverTimestamp(),
+        );
+        noteAllocation(allocation);
+        Object.assign(data, allocation.fields);
+        transaction.set(allocation.counterRef, allocation.counter);
+      }
+      transaction.set(ref, data, { merge: true });
+    });
     if (version !== sessionVersion) return true;
     if (current === report || !current) {
       current = { ...report, ...data };
@@ -554,6 +651,21 @@ window.openReport = async (id) => {
   }
 };
 function dash() {
+  q("assignMissingNumbers")?.remove();
+  const missing = reports.filter(
+    (report) =>
+      !(report.reportNo || report.runNumber) &&
+      (report.userId === user?.uid || isAdmin()),
+  );
+  if (missing.length) {
+    const button = document.createElement("button");
+    button.id = "assignMissingNumbers";
+    button.className = "secondary";
+    button.textContent =
+      "Assign missing report numbers (" + missing.length + ")";
+    button.onclick = window.assignMissingReportNumbers;
+    q("reportList").before(button);
+  }
   q("kReports").textContent = reports.length;
   q("kDraft").textContent = reports.filter((r) => r.status === "Draft").length;
   q("kSubmitted").textContent = reports.filter(
@@ -563,18 +675,55 @@ function dash() {
     (sum, r) => sum + (r.items || []).filter((i) => i.receiptData).length,
     0,
   );
-  q("reportTitle").textContent = isAdmin()
-    ? "Current Reports"
-    : isManager()
-      ? "Submitted Reports"
-      : "My Active Reports";
-  q("reportSubtitle").textContent = "10 per page · Sorted by report number.";
+  q("reportTitle").textContent = "My Active Reports";
+  q("reportSubtitle").textContent =
+    "Your reports only · 10 per page · Sorted by report number.";
   renderDashboardReports(q("reportList"), reports);
 }
+let assigningNumbers = false;
+window.assignMissingReportNumbers = async () => {
+  if (assigningNumbers || !user) return false;
+  assigningNumbers = true;
+  try {
+    const missing = reports.filter(
+      (report) =>
+        !(report.reportNo || report.runNumber) &&
+        (report.userId === user.uid || isAdmin()),
+    );
+    for (const report of missing) {
+      await runNumberedTransaction(db, async (transaction, noteAllocation) => {
+        const ref = doc(db, "expenseReports", report.id),
+          snapshot = await transaction.get(ref);
+        if (!snapshot.exists()) return;
+        const existing = snapshot.data();
+        if (existing.reportNo || existing.runNumber) return;
+        const allocation = await reserveReportNumber(
+          transaction,
+          db,
+          report.id,
+          numberingYear(existing),
+          serverTimestamp(),
+        );
+        noteAllocation(allocation);
+        transaction.set(allocation.counterRef, allocation.counter);
+        transaction.set(ref, allocation.fields, { merge: true });
+      });
+    }
+    await loadReports();
+    return true;
+  } catch (error) {
+    alert("Cannot assign report numbers: " + error.message);
+    return false;
+  } finally {
+    assigningNumbers = false;
+  }
+};
 window.refreshDashboardReports = loadReports;
 
 function init() {
-  CURRENCIES.forEach((c) => q("reportCurrency").add(new Option(c, c)));
+  q("reportCurrency").add(new Option("HKD", "HKD"));
+  for (const id of ["fromDate", "toDate"])
+    q(id).addEventListener("change", window.calc);
   window.newReport(false);
 }
 init();

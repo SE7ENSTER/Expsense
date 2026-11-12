@@ -9,7 +9,13 @@ service cloud.firestore {
     function activeUser() {
       return signedIn() && exists(profilePath())
         && get(profilePath()).data.get('active', true) == true
-        && get(profilePath()).data.get('role', '') in ['user','manager','finance','admin'];
+        && get(profilePath()).data.get('role', '') in ['user','manager','finance','admin']
+        && passwordReady();
+    }
+    function passwordReady() {
+      let path = /databases/$(database)/documents/accountSecurity/$(request.auth.uid);
+      return !exists(path) || (get(path).data.get('mustChangePassword', true) == false
+        && request.auth.token.get('passwordVersion', '') == get(path).data.requiredVersion);
     }
     function myRole() { return get(profilePath()).data.get('role', ''); }
     function isAdmin() { return activeUser() && myRole() == 'admin'; }
@@ -45,9 +51,27 @@ service cloud.firestore {
     }
     function identityUnchanged() {
       return request.resource.data.userId == resource.data.userId
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.get('reportNo', null) == resource.data.get('reportNo', null)
-        && request.resource.data.get('runNumber', null) == resource.data.get('runNumber', null);
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && numberUnchanged();
+    }
+    function missingNumber(data) {
+      return data.get('reportNo', '') == '' && data.get('runNumber', '') == '';
+    }
+    function numberUnchanged() {
+      return request.resource.data.get('reportNo', null) == resource.data.get('reportNo', null)
+        && request.resource.data.get('runNumber', null) == resource.data.get('runNumber', null)
+        && request.resource.data.get('numberingYear', null) == resource.data.get('numberingYear', null);
+    }
+    function paddedNumber(number) {
+      return (number < 10 ? '00000' : number < 100 ? '0000' : number < 1000 ? '000' : number < 10000 ? '00' : number < 100000 ? '0' : '') + string(number);
+    }
+    function validAssignedNumber(data, reportId) {
+      let year = data.get('numberingYear', '');
+      let counter = getAfter(/databases/$(database)/documents/reportCounters/$(year)).data;
+      return year.matches('FY[0-9]{4}')
+        && counter.lastReportId == reportId
+        && data.reportNo == 'EXP-' + year + '-' + paddedNumber(counter.lastNumber)
+        && data.runNumber == data.reportNo;
     }
     function validInternalId(reportId) {
       return (!changed().hasAny(['id']) || request.resource.data.id == reportId)
@@ -57,18 +81,25 @@ service cloud.firestore {
       return resource.data.userId == request.auth.uid
         && resource.data.status in ['Draft','Revision Requested']
         && request.resource.data.status in ['Draft','Submitted']
-        && identityUnchanged() && validInternalId(reportId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (numberUnchanged() || (missingNumber(resource.data) && validAssignedNumber(request.resource.data, reportId)))
+        && validInternalId(reportId)
+        && ((request.resource.data.status == 'Submitted' && request.resource.data.submittedAt == request.time)
+          || (request.resource.data.status == 'Draft' && unchangedField('submittedAt')))
         && changed().hasOnly(['id','docId','meta','items','totalHkd','fiscalYear',
-          'status','updatedAt','submittedAt']);
+          'status','updatedAt','submittedAt','reportNo','runNumber','numberingYear']);
     }
     function managerEdit() {
       let data = request.resource.data;
-      return isManager() && resource.data.status == 'Submitted'
+      return (isManager() || isAdmin()) && resource.data.status == 'Submitted'
         && data.status in ['Manager Approved','Rejected','Revision Requested']
         && identityUnchanged()
         && changed().hasOnly(['status','managerStatus','managerId','managerEmail',
-          'managerComment','managerActionAt','updatedAt'])
+          'managerComment','managerActionAt','managerApprovedAt','updatedAt'])
         && data.managerId == request.auth.uid
+        && data.managerActionAt == request.time
+        && (data.status == 'Manager Approved' ? data.managerApprovedAt == request.time : unchangedField('managerApprovedAt'))
         && (data.status == 'Manager Approved' || nonblank(data.get('managerComment', '')));
     }
     function financeEdit() {
@@ -78,9 +109,16 @@ service cloud.firestore {
         && ((from == 'Manager Approved' && processing(data.status))
           || (processing(from) && (processing(data.status) || data.status in ['Reimbursed','Closed'])))
         && changed().hasOnly(['status','financeStatus','financeBy','financeEmail',
-          'paymentReference','financeRemark','financeActionAt','updatedAt'])
+          'paymentReference','financeRemark','financeActionAt','financeApprovedAt','reimbursedAt','closedAt','updatedAt'])
         && data.financeBy == request.auth.uid
+        && data.financeActionAt == request.time
+        && (from == 'Manager Approved' && processing(data.status) ? data.financeApprovedAt == request.time : unchangedField('financeApprovedAt'))
+        && (data.status == 'Reimbursed' ? data.reimbursedAt == request.time : unchangedField('reimbursedAt'))
+        && (data.status == 'Closed' ? data.closedAt == request.time : unchangedField('closedAt'))
         && (!(data.status in ['Reimbursed','Closed']) || nonblank(data.get('paymentReference', '')));
+    }
+    function unchangedField(field) {
+      return request.resource.data.get(field, null) == resource.data.get(field, null);
     }
 
     match /users/{userId} {
@@ -104,13 +142,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     match /expenseReports/{reportId} {
+      // A creator must be able to check that its new random document ID is unused.
+      allow get: if activeUser()
+        && !exists(/databases/$(database)/documents/expenseReports/$(reportId));
       allow create: if activeUser()
         && validReport(request.resource.data)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status in ['Draft','Submitted']
         && request.resource.data.createdAt == request.time
+        && (request.resource.data.status == 'Submitted' ? request.resource.data.submittedAt == request.time : request.resource.data.get('submittedAt', null) == null)
         && request.resource.data.keys().hasOnly(['id','docId','userId','userEmail',
-          'status','meta','items','totalHkd','fiscalYear','createdAt','updatedAt','submittedAt']);
+          'status','meta','items','totalHkd','fiscalYear','createdAt','updatedAt','submittedAt',
+          'reportNo','runNumber','numberingYear'])
+        && (missingNumber(request.resource.data) || validAssignedNumber(request.resource.data, reportId));
       allow read: if activeUser() && (
         resource.data.userId == request.auth.uid || isAdmin()
         || (isManager() && resource.data.status in ['Submitted','Manager Approved',
@@ -118,9 +162,26 @@ service cloud.firestore {
         || (isFinance() && resource.data.status in ['Manager Approved',
           'Finance Processing','Reimbursement Processing','Reimbursed','Closed']));
       // Admin retains the existing exceptional management privilege.
-      allow update: if activeUser() && validReport(request.resource.data)
-        && (isAdmin() || ownerEdit(reportId) || managerEdit() || financeEdit());
+      allow update: if activeUser() && ((validReport(request.resource.data)
+        && (isAdmin() || ownerEdit(reportId) || managerEdit() || financeEdit()
+          || (resource.data.userId == request.auth.uid && missingNumber(resource.data)
+            && validAssignedNumber(request.resource.data, reportId)
+            && changed().hasOnly(['reportNo','runNumber','numberingYear']))))
+        || (request.resource.data.status in ['Rejected','Revision Requested'] && managerEdit()));
       allow delete: if isAdmin();
+    }
+    match /reportCounters/{year} {
+      allow read: if activeUser();
+      allow create, update: if activeUser()
+        && year.matches('FY[0-9]{4}')
+        && request.resource.data.keys().hasOnly(['lastNumber','lastReportId','updatedAt'])
+        && request.resource.data.lastNumber is int
+        && request.resource.data.lastNumber > 0 && request.resource.data.lastNumber <= 999999999
+        && request.resource.data.lastReportId is string
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastNumber == (exists(/databases/$(database)/documents/reportCounters/$(year)) ? resource.data.lastNumber + 1 : 1)
+        && getAfter(/databases/$(database)/documents/expenseReports/$(request.resource.data.lastReportId)).data.reportNo == 'EXP-' + year + '-' + paddedNumber(request.resource.data.lastNumber);
+      allow delete: if false;
     }
 
     function notificationForReport(data) {
@@ -178,5 +239,94 @@ service cloud.firestore {
         && validLog(['Finance Processing','Reimbursement Processing','Reimbursed','Closed']);
       allow update, delete: if false;
     }
+    // Monthly invoices contain bank details and signatures: owners plus Finance/Admin only.
+    function invoiceText(value) { return value is string; }
+    function invoiceLine(line, draft) {
+      let amount = line.amountMinor;
+      let description = line.description;
+      return amount is int && amount >= 0
+        && (draft || amount == 0 || description.matches('(?s).*\\S.*'));
+    }
+    function invoiceDocument(file) {
+      return file == null || (file is map && file.keys().hasOnly(['name','type','data'])
+        && file.name is string && file.name.size() > 0 && file.name.size() <= 200
+        && file.type in ['application/pdf','image/png','image/jpeg']
+        && file.data is string && file.data.size() <= 600000
+        && file.data.matches('data:(application/pdf|image/(png|jpeg));base64,[A-Za-z0-9+/=]+'));
+    }
+    function validInvoice(data, invoiceId) {
+      let sender = data.from;
+      let bank = data.payment;
+      let rows = data.items;
+      let draft = data.status == 'Draft';
+      let file = data.supportingDocument;
+      return data.size() <= 25
+        && data.schemaVersion == 1
+        && data.declaration == 'I confirm that the amounts invoiced above are accurate, relate to services or expenses for Suisseland Group, and have not been invoiced before. Supporting receipts for any reimbursement are attached.'
+        && data.userId == request.auth.uid && data.userEmail == request.auth.token.email
+        && data.serviceMonth is string && data.serviceMonth.matches('20[0-9]{2}-(0[1-9]|1[0-2])')
+        && invoiceId == request.auth.uid + '_' + data.serviceMonth
+        && data.invoiceDate is string && data.invoiceDate.matches('20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])')
+        && data.currency in ['HKD','USD','CAD','CNY','EUR','GBP','SGD','THB','VND','IDR','MYR','JPY','KRW','AUD','PKR','BRL','MXN','PHP','AED','TRY']
+        && data.paymentTerms in ['Upon receipt','7 days','14 days','30 days']
+        && sender is map && sender.keys().hasOnly(['fullName','address1','address2','country','phone','email'])
+        // String concatenation rejects non-string fields without repeated helper calls.
+        && (draft ? invoiceText(sender.fullName + sender.address1 + sender.address2 + sender.country + sender.phone + sender.email) : invoiceText(sender.address2 + sender.phone))
+        && bank is map && bank.keys().hasOnly(['accountName','bankName','accountNumber','swift','bankCode','bankAddress'])
+        && (draft ? invoiceText(bank.accountName + bank.bankName + bank.accountNumber + bank.swift + bank.bankCode + bank.bankAddress) : invoiceText(bank.bankCode + bank.bankAddress))
+        && rows is list && rows.size() == 10
+        && invoiceLine(rows[0], draft)
+        && invoiceLine(rows[1], draft)
+        && invoiceLine(rows[2], draft)
+        && invoiceLine(rows[3], draft)
+        && invoiceLine(rows[4], draft)
+        && invoiceLine(rows[5], draft)
+        && invoiceLine(rows[6], draft)
+        && invoiceLine(rows[7], draft)
+        && invoiceLine(rows[8], draft)
+        && invoiceLine(rows[9], draft)
+        && data.totalMinor is int && data.totalMinor >= 0 && data.totalMinor <= 99999999999
+        && data.totalMinor == rows[0].amountMinor + rows[1].amountMinor + rows[2].amountMinor + rows[3].amountMinor + rows[4].amountMinor + rows[5].amountMinor + rows[6].amountMinor + rows[7].amountMinor + rows[8].amountMinor + rows[9].amountMinor
+        && data.status in ['Draft','Submitted'] && data.updatedAt == request.time
+        && data.revision is int && data.revision > 0
+        && data.signature is string && data.signature.size() <= 100000
+        && invoiceText(data.signatureName) && data.consent is bool
+        && invoiceDocument(file)
+        && (data.status == 'Draft'
+          ? (data.signature == '' && data.consent == false && !data.keys().hasAny(['signedAt','submittedAt']))
+          : signedInvoice(data));
+    }
+    function signedInvoice(data) {
+      let sender = data.from;
+      let bank = data.payment;
+      return data.totalMinor > 0 && data.consent == true && data.signatureName.matches('(?s).*\\S.*')
+        && data.signature.matches('data:image/png;base64,[A-Za-z0-9+/=]+')
+        && data.signedAt == request.time && data.submittedAt == request.time
+        && sender.fullName.matches('(?s).*\\S.*') && sender.address1.matches('(?s).*\\S.*') && sender.country.matches('(?s).*\\S.*')
+        && sender.email.matches('[^\\s@]+@[^\\s@]+[.][^\\s@]+')
+        && bank.accountName.matches('(?s).*\\S.*') && bank.bankName.matches('(?s).*\\S.*')
+        && bank.accountNumber.matches('(?s).*\\S.*') && bank.swift.matches('(?s).*\\S.*')
+        ;
+    }
+    match /monthlyInvoices/{invoiceId} {
+      allow get: if activeUser() && (
+        (resource.data.userId == request.auth.uid)
+        || ((isAdmin() || isFinance()) && resource.data.status == 'Submitted')
+        || (!exists(/databases/$(database)/documents/monthlyInvoices/$(invoiceId))
+          && invoiceId.size() > 8 && invoiceId[0:invoiceId.size()-8] == request.auth.uid
+          && invoiceId.matches('.*_20[0-9]{2}-(0[1-9]|1[0-2])')));
+      allow list: if activeUser() && (resource.data.userId == request.auth.uid
+        || ((isAdmin() || isFinance()) && resource.data.status == 'Submitted'));
+      allow create: if activeUser() && validInvoice(request.resource.data, invoiceId)
+        && request.resource.data.createdAt == request.time && request.resource.data.revision == 1;
+      allow update: if activeUser() && resource.data.userId == request.auth.uid
+        && resource.data.status == 'Draft' && validInvoice(request.resource.data, invoiceId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.serviceMonth == resource.data.serviceMonth
+        && request.resource.data.revision == resource.data.revision + 1;
+      allow delete: if false;
+    }
+    match /accountSecurity/{uid} { allow read, write: if false; }
+    match /passwordResetAudit/{id} { allow read, write: if false; }
   }
 }

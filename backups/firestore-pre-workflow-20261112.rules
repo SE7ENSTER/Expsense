@@ -1,0 +1,182 @@
+// Release candidate — deploy only after backup and live schema verification.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    function activeUser() {
+      return signedIn() && exists(profilePath())
+        && get(profilePath()).data.get('active', true) == true
+        && get(profilePath()).data.get('role', '') in ['user','manager','finance','admin'];
+    }
+    function myRole() { return get(profilePath()).data.get('role', ''); }
+    function isAdmin() { return activeUser() && myRole() == 'admin'; }
+    function isManager() { return activeUser() && myRole() == 'manager'; }
+    function isFinance() { return activeUser() && myRole() == 'finance'; }
+    function backOffice() { return isAdmin() || isManager() || isFinance(); }
+    function nonblank(value) {
+      return value is string && value.matches('(?s).*\\S.*');
+    }
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+    function processing(status) {
+      return status in ['Finance Processing','Reimbursement Processing'];
+    }
+    function validCreatedAt(value) {
+      // Old client copies serialized Firestore Timestamp into an immutable map.
+      // New documents still require request.time in the create rule below.
+      return value is timestamp || (value is map
+        && value.keys().hasOnly(['seconds','nanoseconds'])
+        && value.seconds is int && value.nanoseconds is int
+        && value.nanoseconds >= 0 && value.nanoseconds < 1000000000);
+    }
+    function validReport(data) {
+      return data.userId is string
+        && validCreatedAt(data.createdAt)
+        && data.meta is map && data.items is list
+        && data.totalHkd is number && data.totalHkd >= 0
+        && data.status in ['Draft','Submitted','Manager Approved','Rejected',
+          'Revision Requested','Finance Processing','Reimbursement Processing',
+          'Reimbursed','Closed']
+        && (data.status == 'Draft' || (data.items.size() > 0 && data.totalHkd > 0));
+    }
+    function identityUnchanged() {
+      return request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.get('reportNo', null) == resource.data.get('reportNo', null)
+        && request.resource.data.get('runNumber', null) == resource.data.get('runNumber', null);
+    }
+    function validInternalId(reportId) {
+      return (!changed().hasAny(['id']) || request.resource.data.id == reportId)
+        && (!changed().hasAny(['docId']) || request.resource.data.docId == reportId);
+    }
+    function ownerEdit(reportId) {
+      return resource.data.userId == request.auth.uid
+        && resource.data.status in ['Draft','Revision Requested']
+        && request.resource.data.status in ['Draft','Submitted']
+        && identityUnchanged() && validInternalId(reportId)
+        && changed().hasOnly(['id','docId','meta','items','totalHkd','fiscalYear',
+          'status','updatedAt','submittedAt']);
+    }
+    function managerEdit() {
+      let data = request.resource.data;
+      return isManager() && resource.data.status == 'Submitted'
+        && data.status in ['Manager Approved','Rejected','Revision Requested']
+        && identityUnchanged()
+        && changed().hasOnly(['status','managerStatus','managerId','managerEmail',
+          'managerComment','managerActionAt','updatedAt'])
+        && data.managerId == request.auth.uid
+        && (data.status == 'Manager Approved' || nonblank(data.get('managerComment', '')));
+    }
+    function financeEdit() {
+      let data = request.resource.data;
+      let from = resource.data.status;
+      return isFinance() && identityUnchanged()
+        && ((from == 'Manager Approved' && processing(data.status))
+          || (processing(from) && (processing(data.status) || data.status in ['Reimbursed','Closed'])))
+        && changed().hasOnly(['status','financeStatus','financeBy','financeEmail',
+          'paymentReference','financeRemark','financeActionAt','updatedAt'])
+        && data.financeBy == request.auth.uid
+        && (!(data.status in ['Reimbursed','Closed']) || nonblank(data.get('paymentReference', '')));
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+        && request.resource.data.role in ['user','manager','finance','admin','disabled']
+        && (isAdmin() || (userId == request.auth.uid
+          && request.resource.data.role == 'user'
+          && request.resource.data.get('active', true) == true));
+      // A disabled user may read their own profile to see the disabled state.
+      allow read: if signedIn() && (userId == request.auth.uid || backOffice());
+      allow update: if isAdmin()
+        && request.resource.data.role in ['user','manager','finance','admin','disabled'];
+      allow delete: if isAdmin();
+    }
+    match /budgets/{budgetId} {
+      // Preserve the current visibility policy; only active users may read.
+      allow read: if activeUser();
+      allow create, update: if isAdmin()
+        && request.resource.data.budgetAmount is number
+        && request.resource.data.budgetAmount >= 0;
+      allow delete: if isAdmin();
+    }
+    match /expenseReports/{reportId} {
+      allow create: if activeUser()
+        && validReport(request.resource.data)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status in ['Draft','Submitted']
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly(['id','docId','userId','userEmail',
+          'status','meta','items','totalHkd','fiscalYear','createdAt','updatedAt','submittedAt']);
+      allow read: if activeUser() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+        || (isManager() && resource.data.status in ['Submitted','Manager Approved',
+          'Rejected','Revision Requested','Finance Processing','Reimbursement Processing','Reimbursed','Closed'])
+        || (isFinance() && resource.data.status in ['Manager Approved',
+          'Finance Processing','Reimbursement Processing','Reimbursed','Closed']));
+      // Admin retains the existing exceptional management privilege.
+      allow update: if activeUser() && validReport(request.resource.data)
+        && (isAdmin() || ownerEdit(reportId) || managerEdit() || financeEdit());
+      allow delete: if isAdmin();
+    }
+
+    function notificationForReport(data) {
+      let report = get(/databases/$(database)/documents/expenseReports/$(data.reportId)).data;
+      let type = data.type;
+      let role = data.get('recipientRole', '');
+      let person = data.get('recipientUserId', '');
+      return (type == 'report_submitted' && report.userId == request.auth.uid
+          && report.status == 'Submitted' && role in ['manager','admin'] && person == '')
+        || ((isManager() || isAdmin()) && report.get('managerId', '') == request.auth.uid
+          && ((type == 'manager_approved' && report.status == 'Manager Approved'
+            && role in ['finance','admin'] && person == '')
+          || (type == 'manager_rejected' && report.status == 'Rejected'
+            && person == report.userId && role == '')
+          || (type == 'revision_requested' && report.status == 'Revision Requested'
+            && person == report.userId && role == '')))
+        || ((isFinance() || isAdmin()) && report.get('financeBy', '') == request.auth.uid
+          && person == report.userId && role == ''
+          && ((type == 'reimbursement_processing' && processing(report.status))
+            || (type == 'reimbursed' && report.status == 'Reimbursed')));
+    }
+    function notificationReader() {
+      return activeUser() && (isAdmin()
+        || resource.data.get('recipientUserId', '') == request.auth.uid
+        || resource.data.get('recipientRole', '') == myRole());
+    }
+    match /notifications/{notificationId} {
+      allow create: if activeUser()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.reportId is string
+        && request.resource.data.type is string
+        && request.resource.data.status == 'unread'
+        && notificationForReport(request.resource.data);
+      allow read: if notificationReader();
+      allow update: if notificationReader()
+        && changed().hasOnly(['status','readAt'])
+        && request.resource.data.status == 'read';
+      allow delete: if isAdmin();
+    }
+    function validLog(actions) {
+      let data = request.resource.data;
+      let report = getAfter(/databases/$(database)/documents/expenseReports/$(data.reportId)).data;
+      return data.reportId is string && data.actionBy == request.auth.uid
+        && data.action in actions && report.status == data.action;
+    }
+    match /approvalLogs/{logId} {
+      allow read: if backOffice();
+      allow create: if (isManager() || isAdmin())
+        && validLog(['Manager Approved','Rejected','Revision Requested']);
+      allow update, delete: if false;
+    }
+    match /paymentLogs/{logId} {
+      allow read: if isAdmin() || isFinance();
+      allow create: if (isFinance() || isAdmin())
+        && validLog(['Finance Processing','Reimbursement Processing','Reimbursed','Closed']);
+      allow update, delete: if false;
+    }
+  }
+}

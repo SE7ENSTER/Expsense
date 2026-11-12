@@ -8,12 +8,29 @@ exports.createRuntime = async function ({
   role = "user",
   reports = [],
   uid = "user-1",
+  firestoreApi = null,
+  functionHandlers = {},
 } = {}) {
-  const { window, document } = parseHTML(
+  const { window: domWindow, document } = parseHTML(
     fs.readFileSync("docs/index.html", "utf8"),
   );
+  // linkedom's default window forwards custom globals to the Node global.
+  // Separate tabs/actors must not overwrite each other's application actions.
+  const globals = new Map([["document", document]]);
+  const window = new Proxy(domWindow, {
+    get(target, key) {
+      return globals.has(key) ? globals.get(key) : Reflect.get(target, key);
+    },
+    set(target, key, value) {
+      globals.set(key, value);
+      return true;
+    },
+  });
+  globals.set("window", window);
   const errors = [],
     alerts = [],
+    passwordResetRequests = [],
+    functionRequests = [],
     writes = [],
     queries = [],
     intervals = new Map(),
@@ -22,6 +39,7 @@ exports.createRuntime = async function ({
   let timer = 0,
     clock = 100,
     failNextWrite = false,
+    failNextPasswordReset = false,
     pauseWrite = null,
     pauseNextReportRead = null;
   const data = new Map();
@@ -112,12 +130,16 @@ exports.createRuntime = async function ({
     },
   });
   window.HTMLCanvasElement.prototype.getContext = () => ({
+    clearRect() {},
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    stroke() {},
     fillRect() {},
     fillText() {},
     drawImage() {},
   });
-  window.HTMLCanvasElement.prototype.toDataURL = () =>
-    "data:image/jpeg;base64,cHJldmlldw==";
+  window.HTMLCanvasElement.prototype.toDataURL = (type) => type === "image/png" ? "data:image/png;base64,iVBORw0KGgo=" : "data:image/jpeg;base64,cHJldmlldw==";
   window.HTMLCanvasElement.prototype.toBlob = function (callback) {
     callback(new Blob(["preview"], { type: "image/jpeg" }));
   };
@@ -153,6 +175,13 @@ exports.createRuntime = async function ({
     getApp: () => ({}),
     getAuth: () => auth,
     getFirestore: () => ({}),
+    getFunctions: () => ({}),
+    httpsCallable: (_, name) => async data => {
+      functionRequests.push(name);
+      if (functionHandlers[name]) return {data: await functionHandlers[name](data)};
+      if (name === 'expensioPasswordChangeStatus') return {data:{mustChangePassword:false}};
+      throw Object.assign(Error('Function is not configured in this test'),{code:'functions/unavailable'});
+    },
     onAuthStateChanged: (_, fn) => {
       if (authHandler) throw Error("Duplicate auth owner");
       authHandler = fn;
@@ -162,6 +191,13 @@ exports.createRuntime = async function ({
       await authHandler(null);
     },
     signInWithEmailAndPassword: async () => {},
+    sendPasswordResetEmail: async (_, email) => {
+      passwordResetRequests.push(email);
+      if (failNextPasswordReset) {
+        failNextPasswordReset = false;
+        throw Error("Simulated reset failure");
+      }
+    },
     createUserWithEmailAndPassword: async (_, email) => {
       const created = { uid: "registered-user", email };
       auth.currentUser = created;
@@ -254,6 +290,21 @@ exports.createRuntime = async function ({
       return { id };
     },
   };
+  let transactionTail = Promise.resolve();
+  api.runTransaction = (_, handler) => {
+    const operation = transactionTail.then(async () => {
+      const batch = api.writeBatch();
+      const result = await handler({
+        get: api.getDoc,
+        set: (...args) => batch.set(...args),
+      });
+      await batch.commit();
+      return result;
+    });
+    transactionTail = operation.catch(() => {});
+    return operation;
+  };
+  if (firestoreApi) Object.assign(api, firestoreApi);
   async function load(identifier) {
     if (modules.has(identifier)) return modules.get(identifier);
     if (identifier.startsWith("https:")) {
@@ -262,9 +313,11 @@ exports.createRuntime = async function ({
             "getAuth",
             "onAuthStateChanged",
             "signInWithEmailAndPassword",
+            "sendPasswordResetEmail",
             "createUserWithEmailAndPassword",
             "signOut",
           ]
+        : identifier.includes("firebase-functions") ? ["getFunctions","httpsCallable"]
         : identifier.includes("firebase-firestore")
           ? [
               "getFirestore",
@@ -277,6 +330,7 @@ exports.createRuntime = async function ({
               "setDoc",
               "addDoc",
               "writeBatch",
+              "runTransaction",
               "serverTimestamp",
             ]
           : ["initializeApp", "getApp"];
@@ -323,6 +377,11 @@ exports.createRuntime = async function ({
     context,
     errors,
     alerts,
+    passwordResetRequests,
+    functionRequests,
+    failPasswordReset: () => {
+      failNextPasswordReset = true;
+    },
     writes,
     queries,
     intervals,
