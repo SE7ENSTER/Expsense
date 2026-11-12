@@ -504,6 +504,10 @@ async function commitAction(report, kind, payload, detail) {
     );
   try {
     await runTransaction(db, async (transaction) => {
+      const actorProfile = await transaction.get(doc(db, "users", actor.uid));
+      const role = actorProfile.data()?.role;
+      if (!actorProfile.exists() || actorProfile.data().active === false || !(kind === "manager" ? ["admin", "manager"] : ["admin", "finance"]).includes(role))
+        throw new Error("Your access changed. Sign out and sign in again before reviewing reports.");
       const snapshot = await transaction.get(reportRef);
       if (!snapshot.exists() || snapshot.data().status !== report.status)
         throw new Error(

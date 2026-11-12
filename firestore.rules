@@ -9,7 +9,13 @@ service cloud.firestore {
     function activeUser() {
       return signedIn() && exists(profilePath())
         && get(profilePath()).data.get('active', true) == true
-        && get(profilePath()).data.get('role', '') in ['user','manager','finance','admin'];
+        && get(profilePath()).data.get('role', '') in ['user','manager','finance','admin']
+        && passwordReady();
+    }
+    function passwordReady() {
+      let path = /databases/$(database)/documents/accountSecurity/$(request.auth.uid);
+      return !exists(path) || (get(path).data.get('mustChangePassword', true) == false
+        && request.auth.token.get('passwordVersion', '') == get(path).data.requiredVersion);
     }
     function myRole() { return get(profilePath()).data.get('role', ''); }
     function isAdmin() { return activeUser() && myRole() == 'admin'; }
@@ -45,7 +51,7 @@ service cloud.firestore {
     }
     function identityUnchanged() {
       return request.resource.data.userId == resource.data.userId
-        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && numberUnchanged();
     }
     function missingNumber(data) {
@@ -86,7 +92,7 @@ service cloud.firestore {
     }
     function managerEdit() {
       let data = request.resource.data;
-      return isManager() && resource.data.status == 'Submitted'
+      return (isManager() || isAdmin()) && resource.data.status == 'Submitted'
         && data.status in ['Manager Approved','Rejected','Revision Requested']
         && identityUnchanged()
         && changed().hasOnly(['status','managerStatus','managerId','managerEmail',
@@ -156,11 +162,12 @@ service cloud.firestore {
         || (isFinance() && resource.data.status in ['Manager Approved',
           'Finance Processing','Reimbursement Processing','Reimbursed','Closed']));
       // Admin retains the existing exceptional management privilege.
-      allow update: if activeUser() && validReport(request.resource.data)
+      allow update: if activeUser() && ((validReport(request.resource.data)
         && (isAdmin() || ownerEdit(reportId) || managerEdit() || financeEdit()
           || (resource.data.userId == request.auth.uid && missingNumber(resource.data)
             && validAssignedNumber(request.resource.data, reportId)
-            && changed().hasOnly(['reportNo','runNumber','numberingYear'])));
+            && changed().hasOnly(['reportNo','runNumber','numberingYear']))))
+        || (request.resource.data.status in ['Rejected','Revision Requested'] && managerEdit()));
       allow delete: if isAdmin();
     }
     match /reportCounters/{year} {
@@ -232,5 +239,7 @@ service cloud.firestore {
         && validLog(['Finance Processing','Reimbursement Processing','Reimbursed','Closed']);
       allow update, delete: if false;
     }
+    match /accountSecurity/{uid} { allow read, write: if false; }
+    match /passwordResetAudit/{id} { allow read, write: if false; }
   }
 }

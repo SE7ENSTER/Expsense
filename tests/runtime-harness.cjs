@@ -9,6 +9,7 @@ exports.createRuntime = async function ({
   reports = [],
   uid = "user-1",
   firestoreApi = null,
+  functionHandlers = {},
 } = {}) {
   const { window: domWindow, document } = parseHTML(
     fs.readFileSync("docs/index.html", "utf8"),
@@ -29,6 +30,7 @@ exports.createRuntime = async function ({
   const errors = [],
     alerts = [],
     passwordResetRequests = [],
+    functionRequests = [],
     writes = [],
     queries = [],
     intervals = new Map(),
@@ -169,6 +171,13 @@ exports.createRuntime = async function ({
     getApp: () => ({}),
     getAuth: () => auth,
     getFirestore: () => ({}),
+    getFunctions: () => ({}),
+    httpsCallable: (_, name) => async data => {
+      functionRequests.push(name);
+      if (functionHandlers[name]) return {data: await functionHandlers[name](data)};
+      if (name === 'expensioPasswordChangeStatus') return {data:{mustChangePassword:false}};
+      throw Object.assign(Error('Function is not configured in this test'),{code:'functions/unavailable'});
+    },
     onAuthStateChanged: (_, fn) => {
       if (authHandler) throw Error("Duplicate auth owner");
       authHandler = fn;
@@ -304,6 +313,7 @@ exports.createRuntime = async function ({
             "createUserWithEmailAndPassword",
             "signOut",
           ]
+        : identifier.includes("firebase-functions") ? ["getFunctions","httpsCallable"]
         : identifier.includes("firebase-firestore")
           ? [
               "getFirestore",
@@ -364,6 +374,7 @@ exports.createRuntime = async function ({
     errors,
     alerts,
     passwordResetRequests,
+    functionRequests,
     failPasswordReset: () => {
       failNextPasswordReset = true;
     },

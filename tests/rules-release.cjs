@@ -676,6 +676,24 @@ async function audit(file, label) {
         }),
       { status: "Finance Processing" },
     );
+    await check("Admin can reject Submitted and create its audit atomically", true, async () => {
+      const batch = writeBatch(actors.admin);
+      batch.update(ref("admin"), {status:"Rejected",managerStatus:"Rejected",managerId:"admin",managerEmail:"admin@example.test",managerComment:"Not a business expense",managerActionAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      batch.set(ref("admin","approvalLogs","admin-reject"), {reportId:"target",action:"Rejected",actionBy:"admin",createdAt:serverTimestamp()});
+      await batch.commit();
+    });
+    for (const role of ['admin','manager']) {
+      await check(role+' may reject an incomplete legacy report without changing its amounts', true, async()=>{
+        await env.withSecurityRulesDisabled(async context=>{const report=base('Submitted');delete report.totalHkd;delete report.createdAt;await setDoc(doc(context.firestore(),'expenseReports','target'),report);});
+        const batch=writeBatch(actors[role]);
+        batch.update(ref(role),{status:'Rejected',managerStatus:'Rejected',managerId:role,managerComment:'Missing information',managerActionAt:serverTimestamp(),updatedAt:serverTimestamp()});
+        batch.set(ref(role,'approvalLogs','legacy-reject'),{reportId:'target',action:'Rejected',actionBy:role,createdAt:serverTimestamp()});await batch.commit();
+      });
+      await check(role+' cannot change amounts through the legacy rejection exception', false, async()=>{
+        await env.withSecurityRulesDisabled(async context=>{const report=base('Submitted');delete report.createdAt;await setDoc(doc(context.firestore(),'expenseReports','target'),report);});
+        await updateDoc(ref(role),{status:'Rejected',totalHkd:999,managerId:role,managerComment:'Missing info',managerActionAt:serverTimestamp()});
+      });
+    }
     await check("Owner cannot delete reports", false, () =>
       deleteDoc(ref("owner")),
     );

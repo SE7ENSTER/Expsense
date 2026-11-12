@@ -1,5 +1,6 @@
 import { auth, db, firebaseConfig } from "./firebase-client.js";
-import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { sendPasswordResetEmail,signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {generateTemporaryPassword,showTemporaryPassword,applyEmailBranding} from './account-security.js';
 import { on, emit } from "./app-events.js";
 import {
   collection,
@@ -52,7 +53,18 @@ function roleOptions(role) {
 function renderAdminUserTools() {
   const card = $("adminUsersCard");
   if (!card || !isAdmin()) return;
-  card.innerHTML = `<div class="admin-note"><h3>User Management</h3><p class="muted">Create users, manage access and send password reset emails.</p></div><div class="admin-create-user"><h4>Create User</h4><div class="admin-create-grid"><label>Email<input id="adminNewEmail" type="email" placeholder="name@company.com"></label><label>Temporary Password<input id="adminNewPassword" type="password" placeholder="Minimum 6 characters"></label><label>Name<input id="adminNewFirstName" placeholder="Name"></label><label>Last Name<input id="adminNewLastName" placeholder="Last name"></label><label>Employee ID<input id="adminNewEmployeeId" placeholder="Employee ID"></label><label>Office Location<input id="adminNewOfficeLocation" placeholder="Office location"></label><label>Department<input id="adminNewDepartment" placeholder="Department"></label><label>Role<select id="adminNewRole"><option>user</option><option>manager</option><option>finance</option><option>admin</option></select></label></div><div class="admin-create-actions"><button onclick="adminCreateUser()">Create User</button><button class="secondary" onclick="adminClearCreateUser()">Clear</button></div><p id="adminUserMsg" class="small muted"></p></div><p id="adminPasswordResetMsg" role="status" aria-live="polite" class="small muted"></p><div class="table-wrap"><table class="admin-table"><thead><tr><th>User</th><th>Employee ID</th><th>Office</th><th>Department</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>${users.map((u) => `<tr><td><strong>${userLabel(u)}</strong><br><span class="muted small">${esc(u.email || "-")}</span></td><td>${esc(u.employeeId || "-")}</td><td>${esc(u.officeLocation || "-")}</td><td>${esc(u.department || "-")}</td><td><select class="role-select" id="adminRole-${u.id}">${roleOptions(u.role || "user")}</select></td><td><span class="mgmt-chip ${u.active === false || u.role === "disabled" ? "red" : "ok"}">${u.active === false || u.role === "disabled" ? "Disabled" : "Active"}</span></td><td><div class="inline-actions"><button class="secondary" onclick="adminSaveUserRole('${u.id}')">Save</button><button type="button" class="secondary" data-reset-user="${esc(u.id)}">Reset password</button>${u.active === false || u.role === "disabled" ? `<button class="secondary" onclick="adminActivateUser('${u.id}')">Activate</button>` : `<button class="danger" onclick="adminDeactivateUser('${u.id}')">Delete / Disable</button>`}</div></td></tr>`).join("") || '<tr><td colspan="7">No users found.</td></tr>'}</tbody></table></div>`;
+  card.innerHTML = `<div class="admin-note"><h3>User Management</h3><p class="muted">Create users, manage access and reset passwords.</p><button type="button" class="secondary" id="applyEmailBrandingBtn">Apply EXPENSiO email branding</button></div><div class="admin-create-user"><h4>Create User</h4><div class="admin-create-grid"><label>Email<input id="adminNewEmail" type="email" placeholder="name@company.com"></label><label>Initial Password<input id="adminNewPassword" type="password" placeholder="Minimum 6 characters"></label><label>Name<input id="adminNewFirstName" placeholder="Name"></label><label>Last Name<input id="adminNewLastName" placeholder="Last name"></label><label>Employee ID<input id="adminNewEmployeeId" placeholder="Employee ID"></label><label>Office Location<input id="adminNewOfficeLocation" placeholder="Office location"></label><label>Department<input id="adminNewDepartment" placeholder="Department"></label><label>Role<select id="adminNewRole"><option>user</option><option>manager</option><option>finance</option><option>admin</option></select></label></div><div class="admin-create-actions"><button onclick="adminCreateUser()">Create User</button><button class="secondary" onclick="adminClearCreateUser()">Clear</button></div><p id="adminUserMsg" class="small muted"></p></div><p id="adminPasswordResetMsg" role="status" aria-live="polite" class="small muted"></p><div class="table-wrap"><table class="admin-table"><thead><tr><th>User</th><th>Employee ID</th><th>Office</th><th>Department</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>${users.map((u) => `<tr><td><strong>${userLabel(u)}</strong><br><span class="muted small">${esc(u.email || "-")}</span></td><td>${esc(u.employeeId || "-")}</td><td>${esc(u.officeLocation || "-")}</td><td>${esc(u.department || "-")}</td><td><select class="role-select" id="adminRole-${u.id}">${roleOptions(u.role || "user")}</select></td><td><span class="mgmt-chip ${u.active === false || u.role === "disabled" ? "red" : "ok"}">${u.active === false || u.role === "disabled" ? "Disabled" : "Active"}</span></td><td><div class="inline-actions"><button type="button" class="secondary" data-save-role="${esc(u.id)}" disabled>Save role</button><button type="button" class="secondary" data-reset-user="${esc(u.id)}">Send reset email</button><button type="button" data-generate-password="${esc(u.id)}" ${u.id === me?.uid || u.active === false || u.role === "disabled" ? "disabled" : ""}>Generate temporary password</button>${u.active === false || u.role === "disabled" ? `<button class="secondary" onclick="adminActivateUser('${u.id}')">Activate</button>` : `<button class="danger" onclick="adminDeactivateUser('${u.id}')">Delete / Disable</button>`}</div></td></tr>`).join("") || '<tr><td colspan="7">No users found.</td></tr>'}</tbody></table></div>`;
+  $("applyEmailBrandingBtn").onclick=async()=>{
+    if(!me||!isAdmin()||!confirm("Set reset email branding to EXPENSiO with sender SLG EXPENSiO?"))return;
+    const button=$("applyEmailBrandingBtn");button.disabled=true;
+    try{await applyEmailBranding();$("adminPasswordResetMsg").textContent="Email branding saved: EXPENSiO / SLG EXPENSiO. Send a reset email to check it.";}
+    catch(error){$("adminPasswordResetMsg").textContent=error.message;}finally{button.disabled=false;}
+  };
+  card.querySelectorAll("[data-save-role]").forEach(button => {
+    const uid=button.dataset.saveRole,select=$("adminRole-"+uid),original=users.find(user=>user.id===uid)?.role||"user";
+    select.addEventListener("change",()=>{button.disabled=select.value===original;});button.onclick=()=>window.adminSaveUserRole(uid);
+  });
+  card.querySelectorAll("[data-generate-password]").forEach(button=>{button.onclick=()=>window.adminGenerateTemporaryPassword(button.dataset.generatePassword);});
   card.querySelectorAll("[data-reset-user]").forEach((button) => {
     button.onclick = () => window.adminResetPassword(button.dataset.resetUser);
   });
@@ -165,20 +177,26 @@ window.adminCreateUser = async () => {
     msg.textContent = "Create user failed: " + e.message;
   }
 };
-window.adminSaveUserRole = async (uid) => {
-  if (!isAdmin()) return alert("Admin only.");
-  const role = $("adminRole-" + uid).value;
-  await setDoc(
-    doc(db, "users", uid),
-    {
-      role,
-      active: role !== "disabled",
-      updatedBy: me.uid,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
-  await loadUsers();
+window.adminSaveUserRole = async uid => {
+  if (!me || !isAdmin()) return false;
+  const target=users.find(user=>user.id===uid),role=$("adminRole-"+uid)?.value;
+  if(!target||!role||role===(target.role||"user"))return false;
+  if(uid===me.uid&&!confirm("Change your own access and sign out?"))return false;
+  try {
+    await setDoc(doc(db,"users",uid),{role,active:role!=="disabled",updatedBy:me.uid,updatedAt:serverTimestamp()},{merge:true});
+    if(uid===me.uid){await signOut(auth);alert("Your role changed. Sign in again.");return true;}
+    await loadUsers();return true;
+  } catch(error){alert("Cannot save role: "+error.message);return false;}
+};
+const generatingPasswords=new Set();
+window.adminGenerateTemporaryPassword=async uid=>{
+  if(!me||!isAdmin()||generatingPasswords.has(uid))return false;
+  const target=users.find(user=>user.id===uid);if(!target?.email||uid===me.uid||target.active===false||target.role==='disabled')return false;
+  if(!confirm("Generate a temporary password for "+target.email+"? Previous passwords and sessions will be blocked until the user sets a new password."))return false;
+  const actor=me.uid,buttons=[...document.querySelectorAll('[data-generate-password]')].filter(button=>button.dataset.generatePassword===uid);generatingPasswords.add(uid);buttons.forEach(button=>button.disabled=true);
+  try{const result=await generateTemporaryPassword(uid,target.email);if(me?.uid!==actor||!isAdmin()){result.temporaryPassword='';return false;}showTemporaryPassword(result);return true;}
+  catch(error){if(me?.uid===actor)$("adminPasswordResetMsg").textContent="Cannot generate temporary password: "+error.message;return false;}
+  finally{generatingPasswords.delete(uid);buttons.forEach(button=>button.disabled=false);}
 };
 window.adminDeactivateUser = async (uid) => {
   if (!isAdmin()) return alert("Admin only.");
