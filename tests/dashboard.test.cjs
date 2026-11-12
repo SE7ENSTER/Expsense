@@ -230,6 +230,12 @@ test("company logo is present in both production headers and references a valid 
     ).length,
     2,
   );
+  assert.deepEqual(
+    [...document.querySelectorAll(".brand-app-name")].map(
+      (el) => el.textContent,
+    ),
+    ["Expensio", "Expensio"],
+  );
   for (const img of document.querySelectorAll(".brand-logo")) {
     const file = "docs/" + img.getAttribute("src").replace(/^\.\//, "");
     assert.equal(

@@ -9,7 +9,7 @@ function ensureRegisterModal() {
   const m = document.createElement("div");
   m.id = "registerModal";
   m.className = "register-modal hide";
-  m.innerHTML = `<div class="register-card"><div class="register-head"><div><h2>Register New User</h2><p class="muted">Create a new SLG Expense user profile. The account will be created in Firebase Authentication and saved to the users collection.</p></div><button class="ghost" type="button" onclick="closeRegisterUser()">Close</button></div><div class="register-grid"><label>Company Email<input id="regEmail" type="email" placeholder="name@company.com" autocomplete="email"></label><label>Password<input id="regPassword" type="password" placeholder="Set initial password" autocomplete="new-password"></label><label>Name<input id="regFirstName" placeholder="Name"></label><label>Last Name<input id="regLastName" placeholder="Last name"></label><label>Employee ID<input id="regEmployeeId" placeholder="Employee ID"></label><label>Office Location<input id="regOfficeLocation" placeholder="Office location"></label><label class="full">Department<input id="regDepartment" placeholder="Department"></label></div><div class="register-actions"><button class="ghost" type="button" onclick="closeRegisterUser()">Cancel</button><button type="button" onclick="submitRegisterUser()">Submit Registration</button></div><p id="registerMsg" class="small muted"></p></div>`;
+  m.innerHTML = `<div class="register-card"><div class="register-head"><div><h2>Register New User</h2><p class="muted">Create a new Expensio user profile. The account will be created in Firebase Authentication and saved to the users collection.</p></div><button class="ghost" type="button" onclick="closeRegisterUser()">Close</button></div><div class="register-grid"><label>Company Email<input id="regEmail" type="email" placeholder="name@company.com" autocomplete="email"></label><label>Password<input id="regPassword" type="password" placeholder="Set initial password" autocomplete="new-password"></label><label>Name<input id="regFirstName" placeholder="Name"></label><label>Last Name<input id="regLastName" placeholder="Last name"></label><label>Employee ID<input id="regEmployeeId" placeholder="Employee ID"></label><label>Office Location<input id="regOfficeLocation" placeholder="Office location"></label><label class="full">Department<input id="regDepartment" placeholder="Department"></label></div><div class="register-actions"><button class="ghost" type="button" onclick="closeRegisterUser()">Cancel</button><button type="button" onclick="submitRegisterUser()">Submit Registration</button></div><p id="registerMsg" class="small muted"></p></div>`;
   document.body.appendChild(m);
 }
 window.openRegisterUser = () => {
@@ -64,4 +64,4 @@ window.submitRegisterUser = async () => {
   }
 };
 
-console.log("SLG Expense register profile flow active");
+console.log("Expensio register profile flow active");

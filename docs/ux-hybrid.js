@@ -22,7 +22,7 @@ function buildHybridShell() {
       '<path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z"/><path d="m8 12 3 3 5-6"/>',
     firebase: '<circle cx="12" cy="12" r="9"/><path d="m5 12 4-4 4 8 3-4h3"/>',
   };
-  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button><button data-view="firebase">${icon(icons.firebase)}<span>System status</span></button></nav></div><div class="side-footer"><strong>SLG Expense</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
+  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button><button data-view="firebase">${icon(icons.firebase)}<span>System status</span></button></nav></div><div class="side-footer"><strong>Expensio</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
   main.classList.add("main-workspace");
   header.after(shell);
   shell.appendChild(aside);

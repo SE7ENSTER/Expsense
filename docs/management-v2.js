@@ -506,7 +506,7 @@ window.exportPdf = async () => {
   let y = 14;
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(18);
-  pdf.text("Expense Report", 14, y);
+  pdf.text("Expensio | Expense Report", 14, y);
   pdf.setFontSize(9);
   pdf.text("Report No: " + no, 14, y + 8);
   pdf.setFont("helvetica", "normal");
@@ -578,7 +578,7 @@ window.exportPdf = async () => {
     }
     y += h + 12;
   }
-  pdf.save("expense-report-" + no + ".pdf");
+  pdf.save("Expensio-Report-" + no + ".pdf");
 };
 function exportCsv() {
   const h = [
@@ -612,7 +612,7 @@ function exportCsv() {
     url = URL.createObjectURL(blob),
     a = document.createElement("a");
   a.href = url;
-  a.download = "expense-reimbursement-summary.csv";
+  a.download = "Expensio-Reimbursement-Summary.csv";
   a.click();
   URL.revokeObjectURL(url);
 }
