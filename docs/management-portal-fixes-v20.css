@@ -24,27 +24,27 @@
   box-shadow: none !important;
 }
 .btn-review {
-  background: #eef6ff !important;
-  color: #2563eb !important;
-  border: 1px solid #cfe0ff !important;
+  background: #f2fbf5 !important;
+  color: #4fc16f !important;
+  border: 1px solid #dbf3e2 !important;
   box-shadow: none !important;
 }
 .btn-receipt {
-  background: #f3f6fb !important;
-  color: #344054 !important;
-  border: 1px solid #dbe4f0 !important;
+  background: #f5f9f6 !important;
+  color: #3a4e40 !important;
+  border: 1px solid #dfece3 !important;
   box-shadow: none !important;
 }
 .btn-process {
-  background: #eef4ff !important;
-  color: #3538cd !important;
-  border: 1px solid #d8dfff !important;
+  background: #f2fbf5 !important;
+  color: #52b06d !important;
+  border: 1px solid #e2f5e7 !important;
   box-shadow: none !important;
 }
 .btn-print {
-  background: #0f172a !important;
+  background: #142519 !important;
   color: #fff !important;
-  border: 1px solid #0f172a !important;
+  border: 1px solid #142519 !important;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18) !important;
 }
 .batch-toolbar {
@@ -68,8 +68,8 @@
   gap: 8px;
 }
 .category-row td {
-  background: #eef6ff !important;
-  color: #164b8b !important;
+  background: #f2fbf5 !important;
+  color: #2c7541 !important;
   font-weight: 600 !important;
   text-transform: uppercase;
   letter-spacing: 0.04em;

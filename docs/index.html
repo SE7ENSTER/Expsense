@@ -3,40 +3,53 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Expensio | Expense workspace</title>
+    <title>EXPENSiO | Expense workspace</title>
+    <meta name="theme-color" content="#183f30" />
+    <link
+      rel="icon"
+      type="image/png"
+      href="./assets/expensio-icon-dollar-green.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="./assets/expensio-icon-dollar-green.png"
+    />
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=expensio-20261112" />
-    <link rel="stylesheet" href="./ux-hybrid.css?v=nav-cleanup-20261112" />
+    <link rel="stylesheet" href="./styles.css?v=dollar-brand-20261112" />
+    <link rel="stylesheet" href="./ux-hybrid.css?v=dollar-brand-20261112" />
     <link
       rel="stylesheet"
-      href="./admin-user-management.css?v=expensio-20261112"
+      href="./admin-user-management.css?v=dollar-brand-20261112"
     />
     <link
       rel="stylesheet"
-      href="./management-portal-fixes-v20.css?v=expensio-20261112"
-    />
-    <link rel="stylesheet" href="./notifications-v23.css?v=expensio-20261112" />
-    <link
-      rel="stylesheet"
-      href="./receipt-dashboard-phase1-v24.css?v=expensio-20261112"
+      href="./management-portal-fixes-v20.css?v=dollar-brand-20261112"
     />
     <link
       rel="stylesheet"
-      href="./dashboard-summary-export-v25.css?v=expensio-20261112"
+      href="./notifications-v23.css?v=dollar-brand-20261112"
     />
     <link
       rel="stylesheet"
-      href="./report-view-toggle-v27.css?v=expensio-20261112"
+      href="./receipt-dashboard-phase1-v24.css?v=dollar-brand-20261112"
     />
     <link
       rel="stylesheet"
-      href="./report-history-v28.css?v=expensio-20261112"
+      href="./dashboard-summary-export-v25.css?v=dollar-brand-20261112"
+    />
+    <link
+      rel="stylesheet"
+      href="./report-view-toggle-v27.css?v=dollar-brand-20261112"
+    />
+    <link
+      rel="stylesheet"
+      href="./report-history-v28.css?v=dollar-brand-20261112"
     />
   </head>
   <body>
     <section id="authView" class="login">
-      <aside class="login-story" aria-label="About Expensio">
+      <aside class="login-story" aria-label="About EXPENSiO">
         <span class="story-kicker">SUISSELAND GROUP · EXPENSE MANAGEMENT</span>
         <h2>Less admin.<br />More moving<br /><em>forward.</em></h2>
         <p>
@@ -44,7 +57,7 @@
           reimbursement.
         </p>
         <div class="story-receipt" aria-hidden="true">
-          <div class="receipt-mark">Expensio <span>SUISSELAND GROUP</span></div>
+          <div class="receipt-mark">EXPENSiO <span>SUISSELAND GROUP</span></div>
           <div class="receipt-lines"><i></i><i></i><i></i></div>
           <div class="receipt-check">✓</div>
           <span class="receipt-caption">Everything in one place</span>
@@ -62,7 +75,15 @@
             alt="Suisseland Group"
             width="170"
             height="55"
-          /><span class="brand-app-name">Expensio</span>
+          /><span class="brand-app-identity"
+            ><span class="brand-app-name"
+              ><img
+                class="app-wordmark"
+                src="./assets/expensio-wordmark-dollar-green.png"
+                alt="EXPENSiO"
+                width="2172"
+                height="724" /></span
+          ></span>
         </div>
         <span class="login-eyebrow">YOUR EXPENSE WORKSPACE</span>
         <h1>Welcome back.</h1>
@@ -101,7 +122,15 @@
               alt="Suisseland Group"
               width="170"
               height="55"
-            /><span class="brand-app-name">Expensio</span>
+            /><span class="brand-app-identity"
+              ><span class="brand-app-name"
+                ><img
+                  class="app-wordmark"
+                  src="./assets/expensio-wordmark-dollar-green.png"
+                  alt="EXPENSiO"
+                  width="2172"
+                  height="724" /></span
+            ></span>
           </div>
           <div id="userLine" class="small muted"></div>
         </div>
@@ -514,14 +543,17 @@
     </section>
     <script
       type="module"
-      src="./firebase-app.js?v=nav-cleanup-20261112"
+      src="./firebase-app.js?v=dollar-brand-20261112"
     ></script>
-    <script type="module" src="./management-v2.js?v=expensio-20261112"></script>
     <script
       type="module"
-      src="./register-profile.js?v=expensio-20261112"
+      src="./management-v2.js?v=dollar-brand-20261112"
     ></script>
-    <script type="module" src="./ux-hybrid.js?v=nav-cleanup-20261112"></script>
+    <script
+      type="module"
+      src="./register-profile.js?v=dollar-brand-20261112"
+    ></script>
+    <script type="module" src="./ux-hybrid.js?v=dollar-brand-20261112"></script>
     <script
       type="module"
       src="./profile-and-dashboard-fixes.js?v=modules-1"
@@ -529,7 +561,7 @@
     <script type="module" src="./admin-user-management.js?v=modules-1"></script>
     <script
       type="module"
-      src="./management-fixes-stable-v21.js?v=expensio-20261112"
+      src="./management-fixes-stable-v21.js?v=dollar-brand-20261112"
     ></script>
     <script
       type="module"
@@ -542,15 +574,15 @@
     ></script>
     <script
       type="module"
-      src="./dashboard-summary-export-v25.js?v=expensio-20261112"
+      src="./dashboard-summary-export-v25.js?v=dollar-brand-20261112"
     ></script>
     <script
       type="module"
-      src="./report-history-v28.js?v=expensio-20261112"
+      src="./report-history-v28.js?v=dollar-brand-20261112"
     ></script>
     <script
       type="module"
-      src="./report-view-toggle-v27.js?v=expensio-20261112"
+      src="./report-view-toggle-v27.js?v=dollar-brand-20261112"
     ></script>
   </body>
 </html>

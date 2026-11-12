@@ -21,7 +21,7 @@ function buildHybridShell() {
     admin:
       '<path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z"/><path d="m8 12 3 3 5-6"/>',
   };
-  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button></nav></div><div class="side-footer"><strong>Expensio</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
+  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button></nav></div><div class="side-footer"><strong>EXPENSiO</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
   main.classList.add("main-workspace");
   header.after(shell);
   shell.appendChild(aside);

@@ -231,12 +231,20 @@ test("company logo is present in both production headers and references a valid 
     2,
   );
   assert.deepEqual(
-    [...document.querySelectorAll(".brand-app-name")].map(
-      (el) => el.textContent,
+    [...document.querySelectorAll(".brand-app-name")].map((el) =>
+      el.querySelector("img").getAttribute("alt"),
     ),
-    ["Expensio", "Expensio"],
+    ["EXPENSiO", "EXPENSiO"],
   );
-  for (const img of document.querySelectorAll(".brand-logo")) {
+  assert.equal(
+    document.querySelector("title").textContent,
+    "EXPENSiO | Expense workspace",
+  );
+  assert.equal(
+    document.querySelector('link[rel="icon"]').getAttribute("href"),
+    "./assets/expensio-icon-dollar-green.png",
+  );
+  for (const img of document.querySelectorAll(".brand-logo,.app-wordmark")) {
     const file = "docs/" + img.getAttribute("src").replace(/^\.\//, "");
     assert.equal(
       fs.readFileSync(file).subarray(0, 8).toString("hex"),

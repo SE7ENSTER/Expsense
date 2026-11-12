@@ -24,7 +24,7 @@
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: #a0abba;
+  color: #a5b5aa;
   font-weight: 600;
   margin: 0 15px 15px;
 }
@@ -36,7 +36,7 @@
   width: 100%;
   justify-content: flex-start;
   background: transparent;
-  color: #7a879a;
+  color: #809486;
   box-shadow: none;
   border: 0;
   border-radius: 9px;
@@ -47,12 +47,12 @@
   text-align: left;
 }
 .side-nav button:hover {
-  background: #f6f8fc;
-  color: #3c5e94;
+  background: #f7fbf8;
+  color: #4d835c;
 }
 .side-nav button.active {
-  background: #edf3ff;
-  color: #2864ed;
+  background: #f2faf4;
+  color: #2e6347;
   font-weight: 600;
 }
 .nav-icon {
@@ -69,13 +69,13 @@
   margin-top: auto;
   border-top: 1px solid var(--line);
   padding: 20px 14px 0;
-  color: #9ba7b8;
+  color: #a1b2a6;
   font-size: 10px;
   line-height: 1.7;
 }
 .side-footer strong {
   display: block;
-  color: #748398;
+  color: #7b9181;
   font-size: 11px;
   font-weight: 600;
   margin-bottom: 4px;
@@ -136,7 +136,7 @@
     height: 16px;
   }
   .side-nav button.active {
-    background: #edf3ff;
+    background: #f2faf4;
   }
 }
 @media (max-width: 760px) {

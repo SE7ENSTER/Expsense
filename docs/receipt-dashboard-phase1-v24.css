@@ -2,9 +2,9 @@
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  border: 1px solid #dbe4f0;
+  border: 1px solid #dfece3;
   border-radius: 16px;
-  background: #f8fbff;
+  background: #fafdfb;
   padding: 12px;
   margin-top: 8px;
 }
@@ -12,26 +12,26 @@
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  background: #eef6ff;
+  background: #f2fbf5;
   display: grid;
   place-items: center;
   font-size: 22px;
 }
 .receipt-file strong {
   display: block;
-  color: #0f172a;
+  color: #142519;
   font-size: 13px;
   word-break: break-word;
 }
 .receipt-file p,
 .file-meta {
   margin: 4px 0 0;
-  color: #64748b;
+  color: #6b8472;
   font-size: 12px;
 }
 .phase1-note {
   font-size: 11px;
-  color: #64748b;
+  color: #6b8472;
   margin-top: 8px;
   line-height: 1.35;
 }
@@ -56,7 +56,7 @@
 }
 .dash-summary .card:last-child {
   border: 0;
-  background: #f7faff;
+  background: #f9fdfa;
 }
 .dash-summary strong {
   display: block;
@@ -68,7 +68,7 @@
 }
 .dash-summary .card:last-child strong {
   font-size: 17px;
-  color: #3f6cbf;
+  color: #57a76e;
   white-space: nowrap;
 }
 .dash-summary .muted {
@@ -82,9 +82,9 @@
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: 9px;
-  background: #f8fafc;
+  background: #f7f8f3;
   border: 1px solid var(--line);
-  color: #728096;
+  color: #798f7f;
   font-size: 11px;
   line-height: 1.5;
 }
@@ -105,7 +105,7 @@
 }
 .summary-title-row label {
   font-size: 10px;
-  color: #8c99ab;
+  color: #92a597;
 }
 .summary-title-row select {
   min-width: 105px;
@@ -117,7 +117,7 @@
 .receipt-file {
   border-color: var(--line);
   border-radius: 10px;
-  background: #f8fafc;
+  background: #f7f8f3;
 }
 .receipt-file .file-icon {
   border-radius: 8px;
@@ -125,7 +125,7 @@
 .phase1-note {
   font-size: 10px;
   line-height: 1.6;
-  color: #94a0b2;
+  color: #9aac9f;
 }
 @media (max-width: 1250px) {
   .dash-summary {
