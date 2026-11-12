@@ -64,17 +64,17 @@ function buildTable() {
     wrap.innerHTML = `<div class="report-grid-empty">${empty}</div>`;
     return;
   }
-  wrap.innerHTML = `<div class="report-table-scroll"><table class="report-grid compact-report-table" aria-label="Current reports"><thead><tr><th scope="col">Report No.</th><th scope="col">Purpose / Trip</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead><tbody>${rows.map((r, index) => `<tr data-report-row="${index}" data-report-id="${escapeHtml(r.id)}"><td data-label="Report No." class="cell-report-no"><button type="button" class="report-open" data-report-open="${escapeHtml(r.id)}" title="${escapeHtml(r.number)}">${escapeHtml(r.number)}</button></td><td data-label="Purpose / Trip" class="cell-purpose" title="${escapeHtml(r.purpose + " · " + r.trip)}">${escapeHtml(r.purpose)}</td><td data-label="Total" class="cell-total" title="${escapeHtml(r.amount)}">${escapeHtml(r.amount)}</td><td data-label="Status"><span class="pill ${r.status === "Submitted" ? "submitted" : ""}" title="${escapeHtml(r.status)}">${escapeHtml(compactStatus(r.status))}</span></td></tr>`).join("")}</tbody></table></div><div class="report-pagination"><span class="report-page-count" role="status" aria-live="polite">${start + 1}–${start + rows.length} of ${reports.length} reports</span><div>${start ? '<button type="button" class="secondary" id="currentReportsPrevious">Previous</button>' : ""}${start + rows.length < reports.length ? '<button type="button" class="secondary" id="currentReportsMore">More <span aria-hidden="true">→</span></button>' : ""}</div></div>`;
+  wrap.innerHTML = `<div class="report-table-scroll"><table class="report-grid compact-report-table" aria-label="Current reports"><thead><tr><th scope="col">Report No.</th><th scope="col">Purpose / Trip</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead><tbody>${rows.map((r, index) => `<tr data-report-row="${index}" data-report-id="${escapeHtml(r.id)}"><td data-label="Report No." class="cell-report-no"><button type="button" class="report-open" data-report-open="${escapeHtml(r.id)}" title="View report ${escapeHtml(r.number)}" aria-label="View report ${escapeHtml(r.number)}">${escapeHtml(r.number)}</button></td><td data-label="Purpose / Trip" class="cell-purpose" title="${escapeHtml(r.purpose + " · " + r.trip)}">${escapeHtml(r.purpose)}</td><td data-label="Total" class="cell-total" title="${escapeHtml(r.amount)}">${escapeHtml(r.amount)}</td><td data-label="Status"><span class="pill ${r.status === "Submitted" ? "submitted" : ""}" title="${escapeHtml(r.status)}">${escapeHtml(compactStatus(r.status))}</span></td></tr>`).join("")}</tbody></table></div><div class="report-pagination"><span class="report-page-count" role="status" aria-live="polite">${start + 1}–${start + rows.length} of ${reports.length} reports</span><div>${start ? '<button type="button" class="secondary" id="currentReportsPrevious">Previous</button>' : ""}${start + rows.length < reports.length ? '<button type="button" class="secondary" id="currentReportsMore">More <span aria-hidden="true">→</span></button>' : ""}</div></div>`;
   wrap.querySelectorAll("[data-report-row]").forEach((row) =>
     row.addEventListener("click", (event) => {
       if (event.target.closest("button")) return;
-      window.openReport?.(row.dataset.reportId);
+      window.reviewReport?.(row.dataset.reportId);
     }),
   );
   wrap.querySelectorAll("[data-report-open]").forEach((button) =>
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      window.openReport?.(button.dataset.reportOpen);
+      window.reviewReport?.(button.dataset.reportOpen);
     }),
   );
   const movePage = (delta) => {

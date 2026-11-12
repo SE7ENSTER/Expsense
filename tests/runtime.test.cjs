@@ -577,10 +577,8 @@ test("responsive report and management rows retain field labels and action contr
   assertLabels();
   r.document.querySelector('[data-report-open="1"]').click();
   await r.settle();
-  assert.equal(
-    r.document.getElementById("editor").classList.contains("hide"),
-    false,
-  );
+  assert.ok(r.document.querySelector('.review-modal'));
+  assert.equal(r.document.getElementById("editor").classList.contains("hide"), true);
   assert.deepEqual(r.errors, []);
 });
 

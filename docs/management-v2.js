@@ -365,7 +365,10 @@ window.reviewReport = async (id, receiptsOnly = false) => {
     b = bFor(r.userId, reportFy(r), r.id);
   const modal = document.createElement("div");
   modal.className = "review-modal";
-  modal.innerHTML = `<div class="review-box"><div class="review-head"><div><h2>${receiptsOnly ? "Receipt Review" : "Expense Report Review"}</h2><p class="muted"><span class="report-no">${esc(reportLabel(r))}</span> · ${esc(dispStatus(r.status))}</p></div><button class="ghost" onclick="this.closest('.review-modal').remove()">Close</button></div>${receiptsOnly ? "" : `<div class="review-grid"><div class="review-field"><b>Employee</b>${esc(m.employee || r.userEmail || "-")}</div><div class="review-field"><b>Purpose</b>${esc(m.purpose || "-")}</div><div class="review-field"><b>Total</b>${money(rawTotal(r))}</div><div class="review-field"><b>Available after claim</b>${money(b.available - rawTotal(r))}</div></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Home Currency</th><th>Amount</th><th>HKD Amount</th><th>Ref</th></tr></thead><tbody>${items.map((it, i) => `<tr><td>${esc(formatReportDate(it.date))}</td><td>${esc(it.desc || "-")}</td><td>${esc(it.category || "-")}</td><td>${esc(it.currency || "-")}</td><td>${Number(it.amount || 0).toFixed(2)}</td><td>${money((+it.amount || 0) * (+it.fx || 0))}</td><td>R${String(i + 1).padStart(2, "0")}</td></tr>`).join("")}</tbody></table></div>`}${[
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-label", "Expense report details");
+  modal.innerHTML = `<div class="review-box"><div class="review-head"><div><h2>${receiptsOnly ? "Receipt Review" : "Expense Report Review"}</h2><p class="muted"><span class="report-no">${esc(reportLabel(r))}</span> · ${esc(dispStatus(r.status))}</p></div><button type="button" class="ghost" data-review-close>Close</button></div>${receiptsOnly ? "" : `<div class="review-grid"><div class="review-field"><b>Employee</b>${esc(m.employee || r.userEmail || "-")}</div><div class="review-field"><b>Purpose</b>${esc(m.purpose || "-")}</div><div class="review-field"><b>Total</b>${money(rawTotal(r))}</div>${canManage() ? `<div class="review-field"><b>Available after claim</b>${money(b.available - rawTotal(r))}</div>` : ""}</div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Home Currency</th><th>Amount</th><th>HKD Amount</th><th>Ref</th></tr></thead><tbody>${items.map((it, i) => `<tr><td>${esc(formatReportDate(it.date))}</td><td>${esc(it.desc || "-")}</td><td>${esc(it.category || "-")}</td><td>${esc(it.currency || "-")}</td><td>${Number(it.amount || 0).toFixed(2)}</td><td>${money((+it.amount || 0) * (+it.fx || 0))}</td><td>R${String(i + 1).padStart(2, "0")}</td></tr>`).join("")}</tbody></table></div>`}${[
     ["Manager comment", r.managerComment],
     ["Finance remark", r.financeRemark],
     ["Payment reference", r.paymentReference],
@@ -382,6 +385,27 @@ window.reviewReport = async (id, receiptsOnly = false) => {
       )
       .join("") || '<p class="muted">No receipt attached.</p>'
   }</div></div>`;
+  modal.querySelector("[data-review-close]").onclick = () => modal.remove();
+  if (
+    !receiptsOnly &&
+    ["Draft", "Revision Requested"].includes(r.status) &&
+    (r.userId === me?.uid || isAdmin())
+  ) {
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "secondary";
+    edit.dataset.reviewEdit = r.id;
+    edit.textContent = "Edit report";
+    edit.onclick = async () => {
+      edit.disabled = true;
+      try {
+        if (await window.openReport(r.id)) modal.remove();
+      } finally {
+        edit.disabled = false;
+      }
+    };
+    modal.querySelector(".review-head").appendChild(edit);
+  }
   document.body.appendChild(modal);
   emit("review-opened", { modal, report: r });
   return true;

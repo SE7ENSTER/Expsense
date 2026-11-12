@@ -1,6 +1,48 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createRuntime } = require("./runtime-harness.cjs");
+test("Current Reports opens the readable review with receipts and Print, without editing a submitted report", async () => {
+  const data = report("Submitted");
+  data.items[0].receiptData = "data:image/png;base64,dGVzdA==";
+  const r = await actor("user", [data]);
+  r.document.querySelector("[data-report-open]").click();
+  await r.settle();
+  const modal = r.document.querySelector(".review-modal");
+  assert.ok(modal);
+  assert.match(modal.textContent, /Expense Report Review/);
+  assert.match(modal.textContent, /Bangkok meeting/);
+  assert.equal(modal.querySelectorAll(".receipt-item").length, 1);
+  assert.ok(modal.querySelector(".btn-print"));
+  assert.equal(modal.querySelector("[data-review-edit]"), null);
+  assert.doesNotMatch(modal.textContent, /Available after claim/);
+  assert.equal(r.writes.length, 0);
+  modal.querySelector("[data-review-close]").click();
+  assert.equal(r.document.querySelector(".review-modal"), null);
+});
+for (const status of ["Draft", "Revision Requested"])
+  test(
+    status + " is viewed first and Edit report opens the existing document",
+    async () => {
+      const r = await actor("user", [report(status)]);
+      assert.equal(await r.window.reviewReport("workflow-report"), true);
+      const edit = r.document.querySelector("[data-review-edit]");
+      assert.ok(edit);
+      await edit.onclick();
+      await r.settle();
+      assert.equal(r.document.querySelector(".review-modal"), null);
+      assert.equal(
+        r.document.getElementById("purpose").value,
+        "Bangkok meeting",
+      );
+      assert.equal(r.writes.length, 0);
+      assert.equal(await r.window.saveReport("Draft"), true);
+      assert.equal(
+        [...r.data.keys()].filter((key) => key.startsWith("expenseReports/"))
+          .length,
+        1,
+      );
+    },
+  );
 const report = (status = "Draft") => ({
   id: "workflow-report",
   userId: "owner",

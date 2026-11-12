@@ -21,7 +21,7 @@ The EXP prefix is a new numbering namespace so allocation does not assume a maxi
 
 ## Validation
 
-- 68 application/dashboard regression and workflow tests pass.
+- 71 application/dashboard regression and workflow tests pass.
 - 58 Firestore security-rule checks pass.
 - 13 integrated scenarios run the actual production application modules with the real Firestore SDK against the isolated Firestore Emulator. These include two managers competing for one approval, two users allocating numbers concurrently, legacy numbering, receipts, notices, payment reference validation, ownership restrictions and History.
 - Production JavaScript syntax and imported assets are checked before release.
@@ -34,3 +34,7 @@ Test users and expenses are synthetic. Authentication is provided by the Firesto
 Deploy the updated Firestore Rules together with Hosting: new report numbering requires `/reportCounters`. Firebase Auth accounts are not copied or recreated. Existing reports are not renumbered automatically.
 
 Backup branch: `backup/pre-workflow-audit-20261112` at `52718f84bd16667bb437763ee1860bb4365a08b8`. `backups/firestore-pre-workflow-20261112.rules` preserves the previous repository rule file; it is not an independent export of the deployed production rules.
+
+## Report viewer follow-up
+
+Current Report rows and report-number buttons now open the existing readable review dialog with receipts and Print / Save PDF. Draft and Revision Requested reports offer Edit report to open the same saved document. Submitted and later reports remain view-only. Owner review hides back-office budget calculations when no budget data has been loaded. Three regression scenarios cover the restored viewer, receipts/print, and editing from the viewer.

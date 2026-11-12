@@ -184,9 +184,11 @@ test("Report No column and Open action stay bound to document ID after sorting",
     "ER-FY2027-1",
   );
   f.document.querySelector('[data-report-open="a"]').click();
-  assert.deepEqual(f.opened, ["a"]);
+  assert.deepEqual(f.reviews, ["a"]);
+  f.document.querySelector('tr[data-report-id="b"] .cell-purpose').click();
+  assert.deepEqual(f.reviews, ["a", "b"]);
   f.list.querySelector('[data-report-id="b"]').click();
-  assert.deepEqual(f.opened, ["a", "b"]);
+  assert.deepEqual(f.opened, ["b"]);
 });
 test("table signature includes report number changes", () => {
   const f = fixture(),
