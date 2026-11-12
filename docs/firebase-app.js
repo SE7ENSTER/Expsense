@@ -301,8 +301,8 @@ window.showView = (view) => {
     view = "admin";
   }
   if (view === "admin" && !canSeeAdmin()) view = "dashboard";
-  if (!["dashboard", "editor", "admin"].includes(view)) view = "dashboard";
-  ["dashboard", "editor", "admin"].forEach((id) => {
+  if (!["dashboard", "editor", "admin", "monthly-invoices"].includes(view)) view = "dashboard";
+  ["dashboard", "editor", "admin", "monthly-invoices"].forEach((id) => {
     q(id).classList.toggle("hide", id !== view);
     q("tab-" + id).classList.toggle("active", id === view);
   });

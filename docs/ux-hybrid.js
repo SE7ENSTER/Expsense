@@ -21,7 +21,7 @@ function buildHybridShell() {
     admin:
       '<path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z"/><path d="m8 12 3 3 5-6"/>',
   };
-  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button></nav></div><div class="side-footer"><strong>EXPENSiO</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
+  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="monthly-invoices">${icon(icons.editor)}<span>Monthly Invoice</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button></nav></div><div class="side-footer"><strong>EXPENSiO</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
   main.classList.add("main-workspace");
   header.after(shell);
   shell.appendChild(aside);
@@ -52,6 +52,7 @@ function updateSideNav(view) {
       "Expense report",
       "Keep the details together. We’ll take care of the totals.",
     ],
+    "monthly-invoices": ["Monthly Invoice", "Prepare, sign and submit your monthly invoice."],
     admin: ["Management", "Review, approve and track your team’s expenses."],
   };
   const [title, description] = titles[view] || titles.dashboard;
@@ -59,11 +60,11 @@ function updateSideNav(view) {
   if (qs("workspaceWelcome")) qs("workspaceWelcome").textContent = description;
   document
     .querySelector(".workspace-create")
-    ?.classList.toggle("hide", view === "editor" || view === "admin");
+    ?.classList.toggle("hide", view !== "dashboard");
   document
     .querySelector(".submission-deadline")
-    ?.classList.toggle("hide", view === "admin");
-  document.querySelector(".hero")?.classList.toggle("hide", view === "admin");
+    ?.classList.toggle("hide", view === "admin" || view === "monthly-invoices");
+  document.querySelector(".hero")?.classList.toggle("hide", view === "admin" || view === "monthly-invoices");
 }
 function updateSideVisibility() {
   const sideAdmin = qs("side-admin");

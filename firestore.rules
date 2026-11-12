@@ -239,6 +239,94 @@ service cloud.firestore {
         && validLog(['Finance Processing','Reimbursement Processing','Reimbursed','Closed']);
       allow update, delete: if false;
     }
+    // Monthly invoices contain bank details and signatures: owners plus Finance/Admin only.
+    function invoiceText(value) { return value is string; }
+    function invoiceLine(line, draft) {
+      let amount = line.amountMinor;
+      let description = line.description;
+      return amount is int && amount >= 0
+        && (draft || amount == 0 || description.matches('(?s).*\\S.*'));
+    }
+    function invoiceDocument(file) {
+      return file == null || (file is map && file.keys().hasOnly(['name','type','data'])
+        && file.name is string && file.name.size() > 0 && file.name.size() <= 200
+        && file.type in ['application/pdf','image/png','image/jpeg']
+        && file.data is string && file.data.size() <= 600000
+        && file.data.matches('data:(application/pdf|image/(png|jpeg));base64,[A-Za-z0-9+/=]+'));
+    }
+    function validInvoice(data, invoiceId) {
+      let sender = data.from;
+      let bank = data.payment;
+      let rows = data.items;
+      let draft = data.status == 'Draft';
+      let file = data.supportingDocument;
+      return data.size() <= 25
+        && data.schemaVersion == 1
+        && data.declaration == 'I confirm that the amounts invoiced above are accurate, relate to services or expenses for Suisseland Group, and have not been invoiced before. Supporting receipts for any reimbursement are attached.'
+        && data.userId == request.auth.uid && data.userEmail == request.auth.token.email
+        && data.serviceMonth is string && data.serviceMonth.matches('20[0-9]{2}-(0[1-9]|1[0-2])')
+        && invoiceId == request.auth.uid + '_' + data.serviceMonth
+        && data.invoiceDate is string && data.invoiceDate.matches('20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])')
+        && data.currency in ['HKD','USD','CAD','CNY','EUR','GBP','SGD','THB','VND','IDR','MYR','JPY','KRW','AUD','PKR','BRL','MXN','PHP','AED','TRY']
+        && data.paymentTerms in ['Upon receipt','7 days','14 days','30 days']
+        && sender is map && sender.keys().hasOnly(['fullName','address1','address2','country','phone','email'])
+        // String concatenation rejects non-string fields without repeated helper calls.
+        && (draft ? invoiceText(sender.fullName + sender.address1 + sender.address2 + sender.country + sender.phone + sender.email) : invoiceText(sender.address2 + sender.phone))
+        && bank is map && bank.keys().hasOnly(['accountName','bankName','accountNumber','swift','bankCode','bankAddress'])
+        && (draft ? invoiceText(bank.accountName + bank.bankName + bank.accountNumber + bank.swift + bank.bankCode + bank.bankAddress) : invoiceText(bank.bankCode + bank.bankAddress))
+        && rows is list && rows.size() == 10
+        && invoiceLine(rows[0], draft)
+        && invoiceLine(rows[1], draft)
+        && invoiceLine(rows[2], draft)
+        && invoiceLine(rows[3], draft)
+        && invoiceLine(rows[4], draft)
+        && invoiceLine(rows[5], draft)
+        && invoiceLine(rows[6], draft)
+        && invoiceLine(rows[7], draft)
+        && invoiceLine(rows[8], draft)
+        && invoiceLine(rows[9], draft)
+        && data.totalMinor is int && data.totalMinor >= 0 && data.totalMinor <= 99999999999
+        && data.totalMinor == rows[0].amountMinor + rows[1].amountMinor + rows[2].amountMinor + rows[3].amountMinor + rows[4].amountMinor + rows[5].amountMinor + rows[6].amountMinor + rows[7].amountMinor + rows[8].amountMinor + rows[9].amountMinor
+        && data.status in ['Draft','Submitted'] && data.updatedAt == request.time
+        && data.revision is int && data.revision > 0
+        && data.signature is string && data.signature.size() <= 100000
+        && invoiceText(data.signatureName) && data.consent is bool
+        && invoiceDocument(file)
+        && (data.status == 'Draft'
+          ? (data.signature == '' && data.consent == false && !data.keys().hasAny(['signedAt','submittedAt']))
+          : signedInvoice(data));
+    }
+    function signedInvoice(data) {
+      let sender = data.from;
+      let bank = data.payment;
+      let rows = data.items;
+      return data.totalMinor > 0 && data.consent == true && data.signatureName.matches('(?s).*\\S.*')
+        && data.signature.matches('data:image/png;base64,[A-Za-z0-9+/=]+')
+        && data.signedAt == request.time && data.submittedAt == request.time
+        && sender.fullName.matches('(?s).*\\S.*') && sender.address1.matches('(?s).*\\S.*') && sender.country.matches('(?s).*\\S.*')
+        && sender.email.matches('[^\\s@]+@[^\\s@]+[.][^\\s@]+')
+        && bank.accountName.matches('(?s).*\\S.*') && bank.bankName.matches('(?s).*\\S.*')
+        && bank.accountNumber.matches('(?s).*\\S.*') && bank.swift.matches('(?s).*\\S.*')
+        ;
+    }
+    match /monthlyInvoices/{invoiceId} {
+      allow get: if activeUser() && (
+        (resource.data.userId == request.auth.uid)
+        || ((isAdmin() || isFinance()) && resource.data.status == 'Submitted')
+        || (!exists(/databases/$(database)/documents/monthlyInvoices/$(invoiceId))
+          && invoiceId.size() > 8 && invoiceId[0:invoiceId.size()-8] == request.auth.uid
+          && invoiceId.matches('.*_20[0-9]{2}-(0[1-9]|1[0-2])')));
+      allow list: if activeUser() && (resource.data.userId == request.auth.uid
+        || ((isAdmin() || isFinance()) && resource.data.status == 'Submitted'));
+      allow create: if activeUser() && validInvoice(request.resource.data, invoiceId)
+        && request.resource.data.createdAt == request.time && request.resource.data.revision == 1;
+      allow update: if activeUser() && resource.data.userId == request.auth.uid
+        && resource.data.status == 'Draft' && validInvoice(request.resource.data, invoiceId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.serviceMonth == resource.data.serviceMonth
+        && request.resource.data.revision == resource.data.revision + 1;
+      allow delete: if false;
+    }
     match /accountSecurity/{uid} { allow read, write: if false; }
     match /passwordResetAudit/{id} { allow read, write: if false; }
   }

@@ -130,12 +130,16 @@ exports.createRuntime = async function ({
     },
   });
   window.HTMLCanvasElement.prototype.getContext = () => ({
+    clearRect() {},
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    stroke() {},
     fillRect() {},
     fillText() {},
     drawImage() {},
   });
-  window.HTMLCanvasElement.prototype.toDataURL = () =>
-    "data:image/jpeg;base64,cHJldmlldw==";
+  window.HTMLCanvasElement.prototype.toDataURL = (type) => type === "image/png" ? "data:image/png;base64,iVBORw0KGgo=" : "data:image/jpeg;base64,cHJldmlldw==";
   window.HTMLCanvasElement.prototype.toBlob = function (callback) {
     callback(new Blob(["preview"], { type: "image/jpeg" }));
   };

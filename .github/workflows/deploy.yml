@@ -74,6 +74,7 @@ jobs:
           export PATH="$RUNNER_TEMP/slg-rules/node_modules/.bin:$PATH"
           npm run test:rules
           npm run test:workflow
+          npm run test:invoices
 
   verify-account-security:
     runs-on: ubuntu-latest
