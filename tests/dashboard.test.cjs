@@ -4,8 +4,14 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const { parseHTML } = require("linkedom");
 const source = fs.readFileSync("docs/report-dashboard.js", "utf8");
+const datesSource = fs.readFileSync("docs/report-dates.js", "utf8");
+const datesUrl =
+  "data:text/javascript;base64," + Buffer.from(datesSource).toString("base64");
 const helper = import(
-  "data:text/javascript;base64," + Buffer.from(source).toString("base64")
+  "data:text/javascript;base64," +
+    Buffer.from(source.replace("./report-dates.js", datesUrl)).toString(
+      "base64",
+    )
 );
 function fixture() {
   const { window, document } = parseHTML(
@@ -28,7 +34,13 @@ function fixture() {
     clearTimeout: () => {},
     MutationObserver: window.MutationObserver,
   });
-  vm.runInContext(source.replaceAll("export ", ""), context);
+  vm.runInContext(datesSource.replaceAll("export ", ""), context);
+  vm.runInContext(
+    source
+      .replace(/^import .*report-dates.js.*;\n/, "")
+      .replaceAll("export ", ""),
+    context,
+  );
   vm.runInContext(
     fs.readFileSync("docs/report-view-toggle-v27.js", "utf8"),
     context,

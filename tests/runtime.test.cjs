@@ -300,10 +300,8 @@ test("failed approval does not generate success notifications or logs", async ()
   });
   await r.login();
   r.failWrite();
-  await assert.rejects(
-    r.window.managerAction("1", "Manager Approved"),
-    /write failure/,
-  );
+  assert.equal(await r.window.managerAction("1", "Manager Approved"), false);
+  assert.match(r.alerts.at(-1), /Action was not completed:.*write failure/);
   await r.settle();
   assert.equal(r.writes.length, 0);
   assert.equal(r.data.get("expenseReports/1").status, "Submitted");

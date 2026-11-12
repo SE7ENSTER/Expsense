@@ -4,8 +4,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:dashboard": "node --test tests/dashboard.test.cjs",
-    "test": "node --experimental-vm-modules --test tests/dashboard.test.cjs tests/runtime.test.cjs",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-slg-rules-audit --config firebase.rules-test.json \"node tests/rules-release.cjs firestore.rules\""
+    "test": "node --experimental-vm-modules --test tests/dashboard.test.cjs tests/runtime.test.cjs tests/workflow.test.cjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-slg-rules-audit --config firebase.rules-test.json \"node tests/rules-release.cjs firestore.rules\"",
+    "test:workflow": "firebase emulators:exec --only firestore --project demo-slg-rules-audit --config firebase.rules-test.json \"node --experimental-vm-modules tests/workflow-emulator.cjs\""
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

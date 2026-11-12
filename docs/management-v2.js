@@ -1,3 +1,4 @@
+import { formatReportDate } from "./report-dates.js";
 import { db } from "./firebase-client.js";
 import { on, emit } from "./app-events.js";
 import { reportNumber } from "./report-dashboard.js";
@@ -6,7 +7,7 @@ import {
   doc,
   getDocs,
   setDoc,
-  writeBatch,
+  runTransaction,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -83,15 +84,18 @@ async function loadData(refreshReports = true) {
   if (me?.uid === uid) renderAll();
 }
 
-function bFor(uid, fy) {
+function bFor(uid, fy, excludeId = "") {
   const b = budgets.find((x) => x.userId === uid && x.fiscalYear === fy),
     amount = +(b?.budgetAmount || 0),
-    mine = reports.filter((r) => r.userId === uid && reportFy(r) === fy),
+    mine = reports.filter(
+      (r) => r.userId === uid && reportFy(r) === fy && r.id !== excludeId,
+    ),
     used = mine
       .filter((r) =>
         [
           "Manager Approved",
           "Finance Processing",
+          "Reimbursement Processing",
           "Reimbursed",
           "Closed",
         ].includes(r.status),
@@ -152,7 +156,7 @@ function injectFilter() {
     .map((x) => `<option>${x}</option>`)
     .join(
       "",
-    )}</select></label><label>Status<select id="mgmtStatusFilter"><option>All</option><option>Submitted</option><option>Manager Approved</option><option>Finance Processing</option><option>Reimbursed</option><option>Rejected</option><option>Revision Requested</option><option>Closed</option></select></label><label>Employee / Email<input id="mgmtEmployeeFilter" placeholder="Search"></label><div class="mgmt-actions"><button class="secondary" id="mgmtApply">Apply</button><button class="secondary" id="mgmtClear">Clear</button></div><button id="exportCsvBtn">Export CSV</button>`;
+    )}</select></label><label>Status<select id="mgmtStatusFilter"><option>All</option><option>Submitted</option><option>Manager Approved</option><option>Finance Processing</option><option>Reimbursement Processing</option><option>Reimbursed</option><option>Rejected</option><option>Revision Requested</option><option>Closed</option></select></label><label>Employee / Email<input id="mgmtEmployeeFilter" placeholder="Search"></label><div class="mgmt-actions"><button class="secondary" id="mgmtApply">Apply</button><button class="secondary" id="mgmtClear">Clear</button></div><button id="exportCsvBtn">Export CSV</button>`;
   grid.after(box);
   $("mgmtApply").onclick = renderAll;
   $("mgmtClear").onclick = () => {
@@ -182,6 +186,7 @@ function renderCompanyBudget() {
           [
             "Manager Approved",
             "Finance Processing",
+            "Reimbursement Processing",
             "Reimbursed",
             "Closed",
           ].includes(r.status),
@@ -255,7 +260,7 @@ async function saveAllBudgets() {
 }
 function rowHtml(r) {
   const m = r.meta || {},
-    b = bFor(r.userId, reportFy(r)),
+    b = bFor(r.userId, reportFy(r), r.id),
     after = b.available - rawTotal(r),
     actions = [];
   if ((isAdmin() || isManager()) && r.status === "Submitted")
@@ -266,7 +271,10 @@ function rowHtml(r) {
     actions.push(
       `<button class="secondary" onclick="financeAction('${r.id}','Finance Processing')">Process</button>`,
     );
-  if ((isAdmin() || isFinance()) && r.status === "Finance Processing")
+  if (
+    (isAdmin() || isFinance()) &&
+    ["Finance Processing", "Reimbursement Processing"].includes(r.status)
+  )
     actions.push(
       `<button class="secondary" onclick="financeAction('${r.id}','Reimbursed')">Reimbursed</button>`,
     );
@@ -284,13 +292,17 @@ function renderQueue() {
           "Submitted",
           "Manager Approved",
           "Finance Processing",
+          "Reimbursement Processing",
           "Rejected",
           "Revision Requested",
         ].includes(r.status)
       : isFinance()
-        ? ["Manager Approved", "Finance Processing", "Reimbursed"].includes(
-            r.status,
-          )
+        ? [
+            "Manager Approved",
+            "Finance Processing",
+            "Reimbursement Processing",
+            "Reimbursed",
+          ].includes(r.status)
         : false,
   );
   const groups = [
@@ -301,7 +313,9 @@ function renderQueue() {
     ],
     [
       "Reimbursement Processing",
-      base.filter((r) => r.status === "Finance Processing"),
+      base.filter((r) =>
+        ["Finance Processing", "Reimbursement Processing"].includes(r.status),
+      ),
     ],
     [
       "Reviewed / Closed",
@@ -348,15 +362,23 @@ window.reviewReport = async (id, receiptsOnly = false) => {
   if (!r) return false;
   const m = r.meta || {},
     items = r.items || [],
-    b = bFor(r.userId, reportFy(r));
+    b = bFor(r.userId, reportFy(r), r.id);
   const modal = document.createElement("div");
   modal.className = "review-modal";
-  modal.innerHTML = `<div class="review-box"><div class="review-head"><div><h2>${receiptsOnly ? "Receipt Review" : "Expense Report Review"}</h2><p class="muted"><span class="report-no">${esc(reportLabel(r))}</span> · ${esc(dispStatus(r.status))}</p></div><button class="ghost" onclick="this.closest('.review-modal').remove()">Close</button></div>${receiptsOnly ? "" : `<div class="review-grid"><div class="review-field"><b>Employee</b>${esc(m.employee || r.userEmail || "-")}</div><div class="review-field"><b>Purpose</b>${esc(m.purpose || "-")}</div><div class="review-field"><b>Total</b>${money(rawTotal(r))}</div><div class="review-field"><b>Available after claim</b>${money(b.available - rawTotal(r))}</div></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Home Currency</th><th>Amount</th><th>HKD Amount</th><th>Ref</th></tr></thead><tbody>${items.map((it, i) => `<tr><td>${it.date || "-"}</td><td>${esc(it.desc || "-")}</td><td>${esc(it.category || "-")}</td><td>${esc(it.currency || "-")}</td><td>${Number(it.amount || 0).toFixed(2)}</td><td>${money((+it.amount || 0) * (+it.fx || 0))}</td><td>R${String(i + 1).padStart(2, "0")}</td></tr>`).join("")}</tbody></table></div>`}<h3>Receipts</h3><div class="receipt-grid">${
+  modal.innerHTML = `<div class="review-box"><div class="review-head"><div><h2>${receiptsOnly ? "Receipt Review" : "Expense Report Review"}</h2><p class="muted"><span class="report-no">${esc(reportLabel(r))}</span> · ${esc(dispStatus(r.status))}</p></div><button class="ghost" onclick="this.closest('.review-modal').remove()">Close</button></div>${receiptsOnly ? "" : `<div class="review-grid"><div class="review-field"><b>Employee</b>${esc(m.employee || r.userEmail || "-")}</div><div class="review-field"><b>Purpose</b>${esc(m.purpose || "-")}</div><div class="review-field"><b>Total</b>${money(rawTotal(r))}</div><div class="review-field"><b>Available after claim</b>${money(b.available - rawTotal(r))}</div></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Home Currency</th><th>Amount</th><th>HKD Amount</th><th>Ref</th></tr></thead><tbody>${items.map((it, i) => `<tr><td>${esc(formatReportDate(it.date))}</td><td>${esc(it.desc || "-")}</td><td>${esc(it.category || "-")}</td><td>${esc(it.currency || "-")}</td><td>${Number(it.amount || 0).toFixed(2)}</td><td>${money((+it.amount || 0) * (+it.fx || 0))}</td><td>R${String(i + 1).padStart(2, "0")}</td></tr>`).join("")}</tbody></table></div>`}${[
+    ["Manager comment", r.managerComment],
+    ["Finance remark", r.financeRemark],
+    ["Payment reference", r.paymentReference],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => `<p><b>${label}:</b> ${esc(value)}</p>`)
+    .join("")}<h3>Receipts</h3><div class="receipt-grid">${
     items
-      .filter((x) => x.receiptData)
+      .map((it, index) => ({ it, index }))
+      .filter(({ it }) => it.receiptData)
       .map(
-        (it, i) =>
-          `<div class="receipt-item"><p><b>R${String(i + 1).padStart(2, "0")}</b> ${esc(it.desc || "Expense item")}</p><img src="${it.receiptData}"></div>`,
+        ({ it, index: i }) =>
+          `<div class="receipt-item"><p><b>R${String(i + 1).padStart(2, "0")}</b> ${esc(it.desc || "Expense item")}</p><img src="${esc(it.receiptData)}"></div>`,
       )
       .join("") || '<p class="muted">No receipt attached.</p>'
   }</div></div>`;
@@ -364,6 +386,50 @@ window.reviewReport = async (id, receiptsOnly = false) => {
   emit("review-opened", { modal, report: r });
   return true;
 };
+const actionLocks = new Set();
+async function commitAction(report, kind, payload, detail) {
+  if (actionLocks.has(report.id)) return false;
+  actionLocks.add(report.id);
+  const actor = me,
+    reportRef = doc(db, "expenseReports", report.id),
+    logRef = doc(
+      collection(db, kind === "manager" ? "approvalLogs" : "paymentLogs"),
+    );
+  try {
+    await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(reportRef);
+      if (!snapshot.exists() || snapshot.data().status !== report.status)
+        throw new Error(
+          "This report has changed. Refresh and review its current status.",
+        );
+      transaction.set(reportRef, payload, { merge: true });
+      transaction.set(logRef, {
+        reportId: report.id,
+        reportNo: reportLabel(report),
+        action: payload.status,
+        actionBy: actor.uid,
+        actionByEmail: actor.email,
+        ...detail,
+        createdAt: serverTimestamp(),
+      });
+    });
+    if (me?.uid === actor.uid) {
+      emit(kind + "-action", {
+        id: report.id,
+        status: payload.status,
+        user: actor,
+      });
+      await loadData();
+    }
+    return true;
+  } catch (error) {
+    alert("Action was not completed: " + error.message);
+    await loadData();
+    return false;
+  } finally {
+    actionLocks.delete(report.id);
+  }
+}
 window.managerAction = async (id, status, batchComment) => {
   if (!isAdmin() && !isManager()) {
     alert("Manager or Admin access required.");
@@ -376,7 +442,7 @@ window.managerAction = async (id, status, batchComment) => {
     !["Manager Approved", "Rejected", "Revision Requested"].includes(status)
   )
     return false;
-  const b = bFor(r.userId, reportFy(r)),
+  const b = bFor(r.userId, reportFy(r), r.id),
     over = rawTotal(r) > b.available;
   let c =
     batchComment === undefined
@@ -390,11 +456,13 @@ window.managerAction = async (id, status, batchComment) => {
       : batchComment;
   if (c === null) return false;
   c = c.trim();
-  if ((status !== "Manager Approved" || over) && !c)
-    return alert("Comment is required.");
-  const batch = writeBatch(db);
-  batch.set(
-    doc(db, "expenseReports", id),
+  if ((status !== "Manager Approved" || over) && !c) {
+    alert("Comment is required.");
+    return false;
+  }
+  return commitAction(
+    r,
+    "manager",
     {
       status,
       managerStatus: status === "Manager Approved" ? "Approved" : status,
@@ -404,21 +472,8 @@ window.managerAction = async (id, status, batchComment) => {
       managerActionAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     },
-    { merge: true },
+    { comment: c || "" },
   );
-  batch.set(doc(collection(db, "approvalLogs")), {
-    reportId: id,
-    reportNo: reportLabel(r),
-    action: status,
-    actionBy: me.uid,
-    actionByEmail: me.email,
-    comment: c || "",
-    createdAt: serverTimestamp(),
-  });
-  await batch.commit();
-  emit("manager-action", { id, status, user: me });
-  await loadData();
-  return true;
 };
 window.managerApprove = (id) => window.managerAction(id, "Manager Approved");
 window.financeAction = async (id, status) => {
@@ -428,7 +483,11 @@ window.financeAction = async (id, status) => {
   }
   const r = reports.find((x) => x.id === id);
   const processing = (value) =>
-    ["Finance Processing", "Reimbursement Processing"].includes(value);
+    [
+      "Finance Processing",
+      "Reimbursement Processing",
+      "Reimbursement Processing",
+    ].includes(value);
   if (
     !r ||
     !(
@@ -442,10 +501,13 @@ window.financeAction = async (id, status) => {
   let ref = prompt(paid ? "Payment reference required:" : "Finance remark:");
   if (ref === null) return false;
   ref = ref.trim();
-  if (paid && !ref) return alert("Payment reference is required.");
-  const batch = writeBatch(db);
-  batch.set(
-    doc(db, "expenseReports", id),
+  if (paid && !ref) {
+    alert("Payment reference is required.");
+    return false;
+  }
+  return commitAction(
+    r,
+    "finance",
     {
       status,
       financeStatus: status,
@@ -456,21 +518,8 @@ window.financeAction = async (id, status) => {
       financeActionAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     },
-    { merge: true },
+    { reference: ref || "" },
   );
-  batch.set(doc(collection(db, "paymentLogs")), {
-    reportId: id,
-    reportNo: reportLabel(r),
-    action: status,
-    actionBy: me.uid,
-    actionByEmail: me.email,
-    reference: ref || "",
-    createdAt: serverTimestamp(),
-  });
-  await batch.commit();
-  emit("finance-action", { id, status, user: me });
-  await loadData();
-  return true;
 };
 function readForm() {
   return [...document.querySelectorAll(".item")].map((it, i) => {
@@ -515,9 +564,9 @@ window.exportPdf = async () => {
   pdf.text("Destination: " + ($("destination")?.value || "-"), 14, y + 34);
   pdf.text(
     "Period: " +
-      ($("fromDate")?.value || "-") +
+      formatReportDate($("fromDate")?.value) +
       " to " +
-      ($("toDate")?.value || "-"),
+      formatReportDate($("toDate")?.value),
     14,
     y + 42,
   );
@@ -540,7 +589,7 @@ window.exportPdf = async () => {
       pdf.addPage();
       y = 18;
     }
-    pdf.text(x.date || "-", 14, y);
+    pdf.text(formatReportDate(x.date), 14, y);
     pdf.text(String(x.desc).slice(0, 26), 39, y);
     pdf.text(String(x.cat).slice(0, 16), 82, y);
     pdf.text(x.cur, 113, y);

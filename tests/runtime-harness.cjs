@@ -8,10 +8,24 @@ exports.createRuntime = async function ({
   role = "user",
   reports = [],
   uid = "user-1",
+  firestoreApi = null,
 } = {}) {
-  const { window, document } = parseHTML(
+  const { window: domWindow, document } = parseHTML(
     fs.readFileSync("docs/index.html", "utf8"),
   );
+  // linkedom's default window forwards custom globals to the Node global.
+  // Separate tabs/actors must not overwrite each other's application actions.
+  const globals = new Map([["document", document]]);
+  const window = new Proxy(domWindow, {
+    get(target, key) {
+      return globals.has(key) ? globals.get(key) : Reflect.get(target, key);
+    },
+    set(target, key, value) {
+      globals.set(key, value);
+      return true;
+    },
+  });
+  globals.set("window", window);
   const errors = [],
     alerts = [],
     writes = [],
@@ -254,6 +268,21 @@ exports.createRuntime = async function ({
       return { id };
     },
   };
+  let transactionTail = Promise.resolve();
+  api.runTransaction = (_, handler) => {
+    const operation = transactionTail.then(async () => {
+      const batch = api.writeBatch();
+      const result = await handler({
+        get: api.getDoc,
+        set: (...args) => batch.set(...args),
+      });
+      await batch.commit();
+      return result;
+    });
+    transactionTail = operation.catch(() => {});
+    return operation;
+  };
+  if (firestoreApi) Object.assign(api, firestoreApi);
   async function load(identifier) {
     if (modules.has(identifier)) return modules.get(identifier);
     if (identifier.startsWith("https:")) {
@@ -277,6 +306,7 @@ exports.createRuntime = async function ({
               "setDoc",
               "addDoc",
               "writeBatch",
+              "runTransaction",
               "serverTimestamp",
             ]
           : ["initializeApp", "getApp"];

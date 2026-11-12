@@ -64,13 +64,14 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Install isolated Firebase test tools
-        run: npm install --prefix "$RUNNER_TEMP/slg-rules" --no-save --package-lock=false --ignore-scripts firebase-tools@15.35.0 @firebase/rules-unit-testing@6.0.0 firebase@13.2.0
+        run: npm install --prefix "$RUNNER_TEMP/slg-rules" --no-save --package-lock=false --ignore-scripts firebase-tools@15.35.0 @firebase/rules-unit-testing@6.0.0 firebase@13.2.0 linkedom@0.18.12
       - name: Verify rules in isolated Firestore Emulator
         env:
           NODE_PATH: ${{ runner.temp }}/slg-rules/node_modules
         run: |
           export PATH="$RUNNER_TEMP/slg-rules/node_modules/.bin:$PATH"
           npm run test:rules
+          npm run test:workflow
 
   deploy:
     if: github.event_name != 'pull_request'

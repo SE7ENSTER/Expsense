@@ -46,8 +46,26 @@ service cloud.firestore {
     function identityUnchanged() {
       return request.resource.data.userId == resource.data.userId
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.get('reportNo', null) == resource.data.get('reportNo', null)
-        && request.resource.data.get('runNumber', null) == resource.data.get('runNumber', null);
+        && numberUnchanged();
+    }
+    function missingNumber(data) {
+      return data.get('reportNo', '') == '' && data.get('runNumber', '') == '';
+    }
+    function numberUnchanged() {
+      return request.resource.data.get('reportNo', null) == resource.data.get('reportNo', null)
+        && request.resource.data.get('runNumber', null) == resource.data.get('runNumber', null)
+        && request.resource.data.get('numberingYear', null) == resource.data.get('numberingYear', null);
+    }
+    function paddedNumber(number) {
+      return (number < 10 ? '00000' : number < 100 ? '0000' : number < 1000 ? '000' : number < 10000 ? '00' : number < 100000 ? '0' : '') + string(number);
+    }
+    function validAssignedNumber(data, reportId) {
+      let year = data.get('numberingYear', '');
+      let counter = getAfter(/databases/$(database)/documents/reportCounters/$(year)).data;
+      return year.matches('FY[0-9]{4}')
+        && counter.lastReportId == reportId
+        && data.reportNo == 'EXP-' + year + '-' + paddedNumber(counter.lastNumber)
+        && data.runNumber == data.reportNo;
     }
     function validInternalId(reportId) {
       return (!changed().hasAny(['id']) || request.resource.data.id == reportId)
@@ -57,9 +75,12 @@ service cloud.firestore {
       return resource.data.userId == request.auth.uid
         && resource.data.status in ['Draft','Revision Requested']
         && request.resource.data.status in ['Draft','Submitted']
-        && identityUnchanged() && validInternalId(reportId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (numberUnchanged() || (missingNumber(resource.data) && validAssignedNumber(request.resource.data, reportId)))
+        && validInternalId(reportId)
         && changed().hasOnly(['id','docId','meta','items','totalHkd','fiscalYear',
-          'status','updatedAt','submittedAt']);
+          'status','updatedAt','submittedAt','reportNo','runNumber','numberingYear']);
     }
     function managerEdit() {
       let data = request.resource.data;
@@ -104,13 +125,18 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     match /expenseReports/{reportId} {
+      // A creator must be able to check that its new random document ID is unused.
+      allow get: if activeUser()
+        && !exists(/databases/$(database)/documents/expenseReports/$(reportId));
       allow create: if activeUser()
         && validReport(request.resource.data)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status in ['Draft','Submitted']
         && request.resource.data.createdAt == request.time
         && request.resource.data.keys().hasOnly(['id','docId','userId','userEmail',
-          'status','meta','items','totalHkd','fiscalYear','createdAt','updatedAt','submittedAt']);
+          'status','meta','items','totalHkd','fiscalYear','createdAt','updatedAt','submittedAt',
+          'reportNo','runNumber','numberingYear'])
+        && (missingNumber(request.resource.data) || validAssignedNumber(request.resource.data, reportId));
       allow read: if activeUser() && (
         resource.data.userId == request.auth.uid || isAdmin()
         || (isManager() && resource.data.status in ['Submitted','Manager Approved',
@@ -119,8 +145,24 @@ service cloud.firestore {
           'Finance Processing','Reimbursement Processing','Reimbursed','Closed']));
       // Admin retains the existing exceptional management privilege.
       allow update: if activeUser() && validReport(request.resource.data)
-        && (isAdmin() || ownerEdit(reportId) || managerEdit() || financeEdit());
+        && (isAdmin() || ownerEdit(reportId) || managerEdit() || financeEdit()
+          || (resource.data.userId == request.auth.uid && missingNumber(resource.data)
+            && validAssignedNumber(request.resource.data, reportId)
+            && changed().hasOnly(['reportNo','runNumber','numberingYear'])));
       allow delete: if isAdmin();
+    }
+    match /reportCounters/{year} {
+      allow read: if activeUser();
+      allow create, update: if activeUser()
+        && year.matches('FY[0-9]{4}')
+        && request.resource.data.keys().hasOnly(['lastNumber','lastReportId','updatedAt'])
+        && request.resource.data.lastNumber is int
+        && request.resource.data.lastNumber > 0 && request.resource.data.lastNumber <= 999999999
+        && request.resource.data.lastReportId is string
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastNumber == (exists(/databases/$(database)/documents/reportCounters/$(year)) ? resource.data.lastNumber + 1 : 1)
+        && getAfter(/databases/$(database)/documents/expenseReports/$(request.resource.data.lastReportId)).data.reportNo == 'EXP-' + year + '-' + paddedNumber(request.resource.data.lastNumber);
+      allow delete: if false;
     }
 
     function notificationForReport(data) {
