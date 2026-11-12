@@ -27,6 +27,12 @@ for (const status of ["Draft", "Revision Requested"])
       assert.equal(await r.window.reviewReport("workflow-report"), true);
       const edit = r.document.querySelector("[data-review-edit]");
       assert.ok(edit);
+      let printed = '';
+      r.window.open = () => ({ document: { write: html => { printed = html; }, close() {} } });
+      r.document.querySelector('.btn-print').onclick();
+      assert.match(printed, /Bangkok meeting/);
+      assert.doesNotMatch(printed, /<button\b/);
+      assert.ok(r.document.querySelector('[data-review-edit]'));
       await edit.onclick();
       await r.settle();
       assert.equal(r.document.querySelector(".review-modal"), null);

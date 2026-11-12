@@ -96,7 +96,8 @@ function addPrintButtons() {
   });
 }
 function printReviewModal(modal) {
-  const box = modal.querySelector(".review-box");
+  const box = modal.querySelector(".review-box").cloneNode(true);
+  box.querySelectorAll("button").forEach(button => button.remove());
   const w = window.open("", "_blank", "width=1100,height=800");
   if (!w) return alert("Please allow pop-ups to print this report.");
   w.document.write(
