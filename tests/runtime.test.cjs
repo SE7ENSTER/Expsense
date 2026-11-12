@@ -125,7 +125,7 @@ test("manager approval updates shared UI and logs before emitting notifications"
     1,
   );
   assert.equal(
-    r.document.querySelector("[data-report-row] .pill").textContent,
+    r.document.querySelector("[data-report-row] .pill").getAttribute("title"),
     "Manager Approved",
   );
   assert.deepEqual(r.errors, []);
@@ -453,7 +453,7 @@ test("repeated navigation never replaces action implementations or duplicates co
   }
   await r.settle();
   for (const [name, fn] of actions) assert.equal(r.window[name], fn, name);
-  assert.equal(r.document.querySelectorAll("#reportViewToggle").length, 1);
+  assert.equal(r.document.querySelectorAll("#reportViewToggle").length, 0);
   assert.equal(r.document.querySelectorAll("#notifWrap").length, 1);
   assert.equal(r.intervals.size, 1);
   assert.deepEqual(r.errors, []);
@@ -509,4 +509,170 @@ test("owner cannot save over a submitted report", async () => {
   await r.window.openReport("1");
   assert.equal(await r.window.saveReport("Draft"), false);
   assert.equal(r.writes.length, 0);
+});
+
+test("workspace navigation retains icons and current-page state, and history follows active reports", async () => {
+  const r = await createRuntime({
+    reports: [report("1"), report("2", "Reimbursed")],
+  });
+  await r.login();
+  const nav = r.document.querySelector('.side-nav [data-view="dashboard"]');
+  assert.equal(nav.getAttribute("aria-current"), "page");
+  assert.ok(nav.querySelector("svg"));
+  r.window.showView("editor");
+  assert.equal(
+    r.document.getElementById("workspaceTitle").textContent,
+    "Expense report",
+  );
+  assert.equal(nav.hasAttribute("aria-current"), false);
+  assert.equal(
+    r.document
+      .querySelector('.side-nav [data-view="editor"]')
+      .getAttribute("aria-current"),
+    "page",
+  );
+  assert.ok(r.document.querySelector('.side-nav [data-view="editor"] svg'));
+  assert.equal(
+    r.document.querySelector(".workspace-create").classList.contains("hide"),
+    true,
+  );
+  r.window.showView("dashboard");
+  const sections = [...r.document.getElementById("dashboard").children].map(
+    (node) => node.id,
+  );
+  assert.ok(
+    sections.indexOf("reportHistorySection") >
+      sections.indexOf("reportTableWrap"),
+  );
+  assert.deepEqual(r.errors, []);
+});
+
+test("responsive report and management rows retain field labels and action controls after refresh", async () => {
+  const r = await createRuntime({
+    role: "admin",
+    reports: [report("1"), report("2", "Reimbursed"), report("3", "Submitted")],
+  });
+  await r.login();
+  const assertLabels = () => {
+    for (const table of r.document.querySelectorAll(
+      ".report-grid,.history-table,.admin-table",
+    )) {
+      const headers = [...table.querySelectorAll("thead th")].map((th) =>
+        th.textContent.trim(),
+      );
+      for (const row of table.querySelectorAll("tbody tr")) {
+        [...row.children].forEach((cell, index) => {
+          if (Number(cell.getAttribute("colspan") || 1) > 1) return;
+          assert.equal(cell.dataset.label, headers[index]);
+        });
+      }
+    }
+  };
+  assertLabels();
+  const select = r.document.getElementById("adminRole-user-1");
+  select.value = "finance";
+  r.eventModule().emit("management-rendered");
+  assert.equal(r.document.getElementById("adminRole-user-1"), select);
+  assert.equal(select.value, "finance");
+  await r.window.refreshAdmin();
+  await r.settle();
+  assertLabels();
+  r.document.querySelector('[data-report-open="1"]').click();
+  await r.settle();
+  assert.equal(
+    r.document.getElementById("editor").classList.contains("hide"),
+    false,
+  );
+  assert.deepEqual(r.errors, []);
+});
+
+test("Current and History paginate independently, keep every report accessible, and reset on account changes", async () => {
+  const active = Array.from({ length: 23 }, (_, i) => report(String(i + 1)));
+  const completed = Array.from({ length: 22 }, (_, i) =>
+    report(String(i + 101), "Reimbursed"),
+  );
+  const r = await createRuntime({
+    reports: [...active, ...completed].reverse(),
+  });
+  await r.login();
+  const currentIds = () =>
+    [...r.document.querySelectorAll("[data-report-row]")].map(
+      (row) => row.dataset.reportId,
+    );
+  const historyIds = () =>
+    [...r.document.querySelectorAll("[data-history-open]")].map(
+      (row) => row.dataset.historyOpen,
+    );
+  assert.equal(currentIds().length, 10);
+  assert.equal(historyIds().length, 10);
+  assert.equal(currentIds()[0], "1");
+  assert.equal(historyIds()[0], "101");
+  r.document.getElementById("currentReportsMore").click();
+  assert.equal(currentIds()[0], "11");
+  assert.equal(historyIds()[0], "101");
+  r.document.getElementById("historyReportsMore").click();
+  assert.equal(currentIds()[0], "11");
+  assert.equal(historyIds()[0], "111");
+  await r.window.refreshDashboardReports();
+  await r.settle();
+  assert.equal(currentIds()[0], "11");
+  assert.equal(historyIds()[0], "111");
+  r.document.getElementById("historyReportsMore").click();
+  assert.deepEqual(historyIds(), ["121", "122"]);
+  assert.equal(r.document.getElementById("historyReportsMore"), null);
+  r.document.querySelector('[data-history-review="122"]').click();
+  await r.settle();
+  assert.ok(
+    r.document
+      .querySelector(".review-modal")
+      .textContent.includes("ER-FY2027-122"),
+  );
+  r.document.getElementById("historyReportsPrevious").click();
+  assert.equal(historyIds()[0], "111");
+  assert.equal(r.document.getElementById("kReports").textContent, "45");
+  await r.logout();
+  assert.equal(r.document.querySelector("[data-report-row]"), null);
+  await r.login();
+  assert.equal(currentIds()[0], "1");
+  assert.equal(historyIds()[0], "101");
+  assert.deepEqual(r.errors, []);
+});
+
+test("History edits update compact fields and a shrinking final page returns to a valid page", async () => {
+  const r = await createRuntime({
+    reports: Array.from({ length: 11 }, (_, i) =>
+      report(String(i + 1), "Reimbursed"),
+    ),
+  });
+  await r.login();
+  r.document.getElementById("historyReportsMore").click();
+  assert.equal(
+    r.document.querySelector("[data-history-open]").dataset.historyOpen,
+    "11",
+  );
+  const saved = r.data.get("expenseReports/11");
+  saved.meta.purpose = "Updated trip";
+  saved.items[0].amount = 400;
+  await r.window.refreshDashboardReports();
+  await r.settle();
+  assert.ok(
+    r.document
+      .querySelector("[data-history-open]")
+      .textContent.includes("Updated trip"),
+  );
+  assert.ok(
+    r.document
+      .querySelector("[data-history-open]")
+      .textContent.includes("HKD 100.00"),
+  );
+  r.data.delete("expenseReports/11");
+  await r.window.refreshDashboardReports();
+  await r.settle();
+  assert.equal(
+    r.document.querySelector("[data-history-open]").dataset.historyOpen,
+    "1",
+  );
+  assert.equal(r.document.querySelectorAll("[data-history-open]").length, 10);
+  assert.equal(r.document.getElementById("historyReportsPrevious"), null);
+  assert.deepEqual(r.errors, []);
 });

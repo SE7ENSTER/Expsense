@@ -11,7 +11,18 @@ function buildHybridShell() {
   shell.className = "app-shell";
   const aside = document.createElement("aside");
   aside.className = "app-sidebar";
-  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><div class="side-nav"><button data-view="dashboard" class="active">Dashboard</button><button data-view="editor">Expense Report</button><button data-view="admin" id="side-admin">Management Portal</button><button data-view="firebase">System Status</button></div></div><div class="side-footer"><strong>SLG Expense</strong><br>Dashboard and Management Portal follow the control-center layout, while Expense Report stays focused for easy user submission.</div>`;
+  const icon = (paths) =>
+    `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
+  const icons = {
+    dashboard:
+      '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    editor:
+      '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
+    admin:
+      '<path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z"/><path d="m8 12 3 3 5-6"/>',
+    firebase: '<circle cx="12" cy="12" r="9"/><path d="m5 12 4-4 4 8 3-4h3"/>',
+  };
+  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button><button data-view="firebase">${icon(icons.firebase)}<span>System status</span></button></nav></div><div class="side-footer"><strong>Expensio</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
   main.classList.add("main-workspace");
   header.after(shell);
   shell.appendChild(aside);
@@ -30,9 +41,27 @@ function buildHybridShell() {
   updateSideVisibility();
 }
 function updateSideNav(view) {
+  document.querySelectorAll(".side-nav [data-view]").forEach((button) => {
+    const active = button.dataset.view === view;
+    button.classList.toggle("active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  const titles = {
+    dashboard: ["Overview", "Your expenses, all in one place."],
+    editor: [
+      "Expense report",
+      "Keep the details together. We’ll take care of the totals.",
+    ],
+    admin: ["Management", "Review, approve and track your team’s expenses."],
+    firebase: ["System status", "Your workspace connection and workflow."],
+  };
+  const [title, description] = titles[view] || titles.dashboard;
+  if (qs("workspaceTitle")) qs("workspaceTitle").textContent = title;
+  if (qs("workspaceWelcome")) qs("workspaceWelcome").textContent = description;
   document
-    .querySelectorAll(".side-nav [data-view]")
-    .forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+    .querySelector(".workspace-create")
+    ?.classList.toggle("hide", view === "editor");
 }
 function updateSideVisibility() {
   const sideAdmin = qs("side-admin");
@@ -48,3 +77,31 @@ on("view-changed", ({ view }) => {
   updateSideVisibility();
 });
 on("session", () => updateSideVisibility());
+
+// Keep headings beside values when management tables become stacked on small screens.
+function labelManagementTables() {
+  document.querySelectorAll(".admin-table").forEach((table) => {
+    const headings = [...table.querySelectorAll("thead th")].map((th) =>
+      th.textContent.trim(),
+    );
+    table.querySelectorAll("tbody tr").forEach((row) => {
+      [...row.children].forEach((cell, index) => {
+        if (
+          cell.tagName !== "TD" ||
+          Number(cell.getAttribute("colspan") || 1) > 1
+        )
+          return;
+        cell.dataset.label = headings[index] || "";
+      });
+    });
+  });
+}
+labelManagementTables();
+for (const event of [
+  "management-rendered",
+  "users-loaded",
+  "review-opened",
+  "view-changed",
+]) {
+  on(event, labelManagementTables);
+}

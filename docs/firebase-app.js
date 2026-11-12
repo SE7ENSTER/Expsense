@@ -568,7 +568,7 @@ function dash() {
     : isManager()
       ? "Submitted Reports"
       : "My Active Reports";
-  q("reportSubtitle").textContent = "Sorted by report number (ascending).";
+  q("reportSubtitle").textContent = "10 per page · Sorted by report number.";
   renderDashboardReports(q("reportList"), reports);
 }
 window.refreshDashboardReports = loadReports;

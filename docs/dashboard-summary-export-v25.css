@@ -1,1 +1,30 @@
-.summary-export-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.summary-export-actions button{border-radius:14px!important;padding:10px 13px!important;font-size:12px!important}.summary-export-actions .export-pdf{background:#0b6bff!important;color:#fff!important;border:1px solid #0b6bff!important}.summary-export-actions .export-excel{background:#ecfdf3!important;color:#027a48!important;border:1px solid #b7ebc6!important}@media(max-width:720px){.summary-export-actions{width:100%}.summary-export-actions button{flex:1}}
+.summary-export-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.summary-export-actions button {
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 10px;
+  font-weight: 500;
+  background: #fff;
+  color: #687d9b;
+  border: 1px solid #dfe6ef;
+}
+.summary-export-actions button:hover {
+  background: #f5f8fc;
+}
+.summary-export-actions .export-excel {
+  color: #458d75;
+}
+@media (max-width: 760px) {
+  .summary-export-actions {
+    width: 100%;
+    order: 3;
+  }
+  .summary-export-actions button {
+    flex: 1;
+  }
+}

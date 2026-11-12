@@ -1,154 +1,585 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SLG Expense v0.28.1</title>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=deadline-banner-1" />
-  <link rel="stylesheet" href="./ux-hybrid.css?v=deadline-banner-1" />
-  <link rel="stylesheet" href="./ui-hotfix-v18.css?v=281" />
-  <link rel="stylesheet" href="./admin-user-management.css?v=281" />
-  <link rel="stylesheet" href="./management-portal-fixes-v20.css?v=281" />
-  <link rel="stylesheet" href="./notifications-v23.css?v=281" />
-  <link rel="stylesheet" href="./receipt-dashboard-phase1-v24.css?v=281" />
-  <link rel="stylesheet" href="./dashboard-summary-export-v25.css?v=281" />
-  <link rel="stylesheet" href="./dashboard-compact-v26.css?v=281" />
-  <link rel="stylesheet" href="./report-view-toggle-v27.css?v=281" />
-  <link rel="stylesheet" href="./report-history-v28.css?v=281" />
-</head>
-<body>
-  <section id="authView" class="login">
-    <div class="login-card">
-      <div class="logo brand-lockup"><img class="brand-logo" src="./assets/suisseland-group.png" alt="Suisseland Group" width="170" height="55"><span class="brand-app-name">SLG Expense</span></div>
-      <h1>Sign in</h1>
-      <p>SLG Expense v0.28.1. Sign in with your company email or register a new user account.</p>
-      <label>Company Email<input id="email" type="email" placeholder="name@company.com" autocomplete="email"></label>
-      <label>Password<input id="password" type="password" placeholder="Enter password" autocomplete="current-password"></label>
-      <div class="auth-actions">
-        <button onclick="signIn()">Sign in</button>
-        <button class="secondary" onclick="signUp()">Register New User</button>
-      </div>
-      <p id="authMsg" class="small muted"></p>
-    </div>
-  </section>
-
-  <section id="appView" class="hide">
-    <header class="top">
-      <div><div class="logo brand-lockup"><img class="brand-logo" src="./assets/suisseland-group.png" alt="Suisseland Group" width="170" height="55"><span class="brand-app-name">SLG Expense</span></div><div id="userLine" class="small muted"></div></div>
-      <div class="top-actions">
-        <button class="secondary" onclick="showView('dashboard')">User Portal</button>
-        <button class="secondary" onclick="newReport()">New Report</button>
-        <button class="ghost" onclick="logout()">Logout</button>
-      </div>
-    </header>
-
-    <main class="wrap">
-      <section class="hero">
-        <aside class="submission-deadline" role="note" aria-label="Monthly expense report submission deadline">
-          <span class="deadline-badge">Monthly reminder</span>
-          <h2>Submit expense reports <strong>before the 10th</strong> of every month.</h2>
-          <p>Complete your expense report and click Submit before the deadline.</p>
-        </aside>
-        <div class="kpi">
-          <small>Current report total</small>
-          <strong id="totalHero">HKD 0.00</strong>
-          <p id="receiptHero" class="muted">0 receipt attached</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Expensio | Expense workspace</title>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="./styles.css?v=expensio-20261112" />
+    <link rel="stylesheet" href="./ux-hybrid.css?v=expensio-20261112" />
+    <link
+      rel="stylesheet"
+      href="./admin-user-management.css?v=expensio-20261112"
+    />
+    <link
+      rel="stylesheet"
+      href="./management-portal-fixes-v20.css?v=expensio-20261112"
+    />
+    <link rel="stylesheet" href="./notifications-v23.css?v=expensio-20261112" />
+    <link
+      rel="stylesheet"
+      href="./receipt-dashboard-phase1-v24.css?v=expensio-20261112"
+    />
+    <link
+      rel="stylesheet"
+      href="./dashboard-summary-export-v25.css?v=expensio-20261112"
+    />
+    <link
+      rel="stylesheet"
+      href="./report-view-toggle-v27.css?v=expensio-20261112"
+    />
+    <link
+      rel="stylesheet"
+      href="./report-history-v28.css?v=expensio-20261112"
+    />
+  </head>
+  <body>
+    <section id="authView" class="login">
+      <aside class="login-story" aria-label="About Expensio">
+        <span class="story-kicker">SUISSELAND GROUP · EXPENSE MANAGEMENT</span>
+        <h2>Less admin.<br />More moving<br /><em>forward.</em></h2>
+        <p>
+          A clear view of every expense, from your first receipt to the final
+          reimbursement.
+        </p>
+        <div class="story-receipt" aria-hidden="true">
+          <div class="receipt-mark">Expensio <span>SUISSELAND GROUP</span></div>
+          <div class="receipt-lines"><i></i><i></i><i></i></div>
+          <div class="receipt-check">✓</div>
+          <span class="receipt-caption">Everything in one place</span>
         </div>
-      </section>
-
-      <div class="tabs">
-        <button id="tab-dashboard" class="tab active" onclick="showView('dashboard')">Dashboard</button>
-        <button id="tab-editor" class="tab" onclick="showView('editor')">Expense Report</button>
-        <button id="tab-admin" class="tab hide" onclick="showView('admin')">Management Portal</button>
-        <button id="tab-firebase" class="tab" onclick="showView('firebase')">System Status</button>
+        <div class="story-footer">
+          <span>01 &nbsp; Create</span><span>02 &nbsp; Submit</span
+          ><span>03 &nbsp; Track</span>
+        </div>
+      </aside>
+      <div class="login-card">
+        <div class="logo brand-lockup">
+          <img
+            class="brand-logo"
+            src="./assets/suisseland-group.png"
+            alt="Suisseland Group"
+            width="170"
+            height="55"
+          /><span class="brand-app-name">Expensio</span>
+        </div>
+        <span class="login-eyebrow">YOUR EXPENSE WORKSPACE</span>
+        <h1>Welcome back.</h1>
+        <p>Sign in to manage your reports and keep things moving.</p>
+        <label
+          >Company Email<input
+            id="email"
+            type="email"
+            placeholder="name@company.com"
+            autocomplete="email"
+        /></label>
+        <label
+          >Password<input
+            id="password"
+            type="password"
+            placeholder="Enter password"
+            autocomplete="current-password"
+        /></label>
+        <div class="auth-actions">
+          <button onclick="signIn()">Sign in</button>
+          <button class="secondary" onclick="signUp()">
+            Register New User
+          </button>
+        </div>
+        <p id="authMsg" class="small muted"></p>
       </div>
+    </section>
 
-      <section id="dashboard">
-        <div class="quick">
-          <div class="card"><div class="muted">Reports visible</div><strong id="kReports">0</strong></div>
-          <div class="card"><div class="muted">Draft</div><strong id="kDraft">0</strong></div>
-          <div class="card"><div class="muted">Submitted</div><strong id="kSubmitted">0</strong></div>
-          <div class="card"><div class="muted">Receipts</div><strong id="kReceipts">0</strong></div>
-        </div>
-        <div id="budgetSummary" class="quick"></div>
-        <div class="toolbar">
-          <div><h2 id="reportTitle">My Reports</h2><p id="reportSubtitle">Loaded from Firestore for the signed-in user.</p></div>
-          <button onclick="newReport()">+ Create Report</button>
-        </div>
-        <div id="reportList" class="report-list" aria-busy="true"></div>
-      </section>
-
-      <section id="editor" class="hide">
-        <section class="card meta">
-          <label>Employee Name<input id="employee" placeholder="Full name as shown in company record"></label>
-          <label>Company / Department<input id="company" placeholder="Company, department, or entity"></label>
-          <label>Business Purpose / Trip Purpose<input id="purpose" placeholder="Example: Site visit, vendor meeting, pre-opening support"></label>
-          <label>Claim Currency<select id="reportCurrency" onchange="calc()"></select></label>
-          <label>Expense Period From<input id="fromDate" type="date" onchange="calc()"></label>
-          <label>Expense Period To<input id="toDate" type="date"></label>
-          <label>Destination / Location<input id="destination" placeholder="City / country or project location"></label>
-          <label>Cost Center / Project Code<input id="costCenter" placeholder="Optional cost center or project code"></label>
-        </section>
-        <div class="toolbar">
-          <div><h2>Expense Items</h2><p>Fiscal year is calculated from the Expense Period From date. FY runs from 1 Nov to 31 Oct.</p></div>
-          <div class="top-actions">
-            <button class="secondary" onclick="saveReport('Draft')">Save Draft</button>
-            <button class="secondary" onclick="saveReport('Submitted')">Submit</button>
-            <button onclick="exportPdf()">Export PDF</button>
+    <section id="appView" class="hide">
+      <header class="top">
+        <div>
+          <div class="logo brand-lockup">
+            <img
+              class="brand-logo"
+              src="./assets/suisseland-group.png"
+              alt="Suisseland Group"
+              width="170"
+              height="55"
+            /><span class="brand-app-name">Expensio</span>
           </div>
+          <div id="userLine" class="small muted"></div>
         </div>
-        <section class="layout">
+        <div class="top-actions">
+          <button class="secondary" onclick="showView('dashboard')">
+            User Portal
+          </button>
+          <button class="secondary" onclick="newReport()">New Report</button>
+          <button class="ghost" onclick="logout()">Logout</button>
+        </div>
+      </header>
+
+      <main class="wrap">
+        <section class="workspace-heading" aria-label="Current workspace">
           <div>
-            <div id="items" class="items"></div>
-            <button class="secondary add" onclick="addItem()">+ Add Expense</button>
+            <span class="page-eyebrow" id="workspaceEyebrow"
+              >YOUR WORKSPACE</span
+            >
+            <h1 id="workspaceTitle">Overview</h1>
+            <p id="workspaceWelcome">Your expenses, all in one place.</p>
           </div>
-          <aside class="side">
-            <div class="card"><h3>Summary</h3><p class="muted">Total converted</p><div id="sideTotal" class="amount">HKD 0.00</div><p id="itemTotal">Items: 0</p><p class="muted">Fiscal Year</p><div id="fyText" class="pill">FY</div><p class="muted">Currency used</p><div id="currencyUsed"></div></div>
-            <div class="card"><h3>Receipt Overview</h3><p id="receiptText">0 of 0 attached</p><div class="bar"><span id="receiptBar" style="width:0%"></span></div></div>
-            <div class="card note"><strong>Currency note</strong><p class="small">Use XE as the reference source and enter the rate manually. Later phases can support monthly rate import or paid API integration.</p><a class="button-link" href="https://www.xe.com/currencyconverter/" target="_blank" rel="noreferrer">Open XE</a></div>
-            <button class="danger" onclick="clearForm()">Clear Form</button>
-          </aside>
+          <button class="workspace-create" type="button" onclick="newReport()">
+            <span aria-hidden="true">＋</span> New expense report
+          </button>
         </section>
-      </section>
+        <section class="hero">
+          <aside
+            class="submission-deadline"
+            role="note"
+            aria-label="Monthly expense report submission deadline"
+          >
+            <span class="deadline-badge"
+              ><span aria-hidden="true">◷</span> Monthly reminder</span
+            >
+            <h2>
+              Submit your reports <strong>before the 10th</strong> of every
+              month.
+            </h2>
+            <p>
+              Complete your expense report and click Submit before the deadline.
+            </p>
+          </aside>
+          <div class="kpi">
+            <small>Current report total</small>
+            <strong id="totalHero">HKD 0.00</strong>
+            <p id="receiptHero" class="muted">0 receipt attached</p>
+          </div>
+        </section>
 
-      <section id="admin" class="hide">
-        <div class="toolbar"><div><h2>Management Portal</h2><p id="adminScopeText">Combined Manager, Finance, and Admin workspace.</p></div><button class="secondary" onclick="refreshAdmin()">Refresh</button></div>
-        <div class="admin-grid">
-          <div class="card"><div class="muted">Your role</div><strong id="myRoleText">user</strong></div>
-          <div class="card"><div class="muted">Manager Queue</div><strong id="adminSubmittedCount">0</strong></div>
-          <div class="card"><div class="muted">Users</div><strong id="adminUserCount">0</strong></div>
+        <div class="tabs">
+          <button
+            id="tab-dashboard"
+            class="tab active"
+            onclick="showView('dashboard')"
+          >
+            Dashboard
+          </button>
+          <button id="tab-editor" class="tab" onclick="showView('editor')">
+            Expense Report
+          </button>
+          <button id="tab-admin" class="tab hide" onclick="showView('admin')">
+            Management Portal
+          </button>
+          <button id="tab-firebase" class="tab" onclick="showView('firebase')">
+            System Status
+          </button>
         </div>
-        <div class="card table-card section-gap"><div class="admin-note"><h3>Manager Review</h3><p class="muted">Manager reviews submitted expense reports, checks budget impact, then approves, rejects, or requests revision.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>FY</th><th>Total HKD</th><th>Budget Impact</th><th>Status</th><th>Action</th></tr></thead><tbody id="reviewReports"><tr><td colspan="7">Use Refresh after login to load submitted reports.</td></tr></tbody></table></div></div>
-        <div class="card table-card section-gap"><div class="admin-note"><h3>Reimbursement Processing</h3><p class="muted">Finance processes manager-approved reports and marks reimbursement status.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Queue</th><th>Status</th><th>Next Action</th></tr></thead><tbody><tr><td>Ready for reimbursement</td><td>Manager Approved</td><td>Mark Reimbursement Processing</td></tr><tr><td>Payment completed</td><td>Reimbursed</td><td>Add payment reference</td></tr></tbody></table></div></div>
-        <div id="adminUsersCard" class="card table-card section-gap"><div class="admin-note"><h3>Admin Tools: User Management</h3><p class="muted">Admin can change roles and assign Manager / Finance / Admin access.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Email</th><th>Role</th><th>Updated</th><th>Action</th></tr></thead><tbody id="adminUsers"></tbody></table></div></div>
-        <div id="budgetAdminCard" class="card table-card section-gap"><div class="admin-note"><h3>Admin Tools: Budget Management</h3><p class="muted">Set annual user budget. Fiscal Year runs 1 Nov to 31 Oct.</p><label style="max-width:180px">Fiscal Year<select id="budgetFySelect" onchange="adminDash()"></select></label></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>User</th><th>Role</th><th>Budget HKD</th><th>Used</th><th>Pending</th><th>Available</th><th>Action</th></tr></thead><tbody id="budgetRows"></tbody></table></div></div>
-        <div class="card table-card section-gap"><div class="admin-note"><h3>All / Visible Reports</h3><p class="muted">Admin sees all reports. Manager sees submitted and reviewed reports.</p></div><div class="table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Purpose</th><th>Status</th><th>User</th><th>Total HKD</th></tr></thead><tbody id="adminReports"></tbody></table></div></div>
-      </section>
 
-      <section id="firebase" class="hide">
-        <div class="toolbar"><div><h2>System Status</h2><p>Connection and next implementation status.</p></div></div>
-        <div class="firebase-grid">
-          <div class="card"><h3>Authentication</h3><p id="authStatus" class="muted">Waiting for sign-in.</p></div>
-          <div class="card"><h3>Firestore</h3><p class="muted">Collections: users, expenseReports, budgets, approvalLogs, notifications</p></div>
-          <div class="card"><h3>Workflow</h3><p class="muted">Draft → Submitted → Manager Approved → Reimbursement Processing → Reimbursed</p></div>
-        </div>
-      </section>
-    </main>
-  </section>
-  <script type="module" src="./firebase-app.js?v=modules-1"></script>
-  <script type="module" src="./management-v2.js?v=modules-1"></script>
-  <script type="module" src="./register-profile.js?v=modules-1"></script>
-  <script type="module" src="./ux-hybrid.js?v=modules-1"></script>
-  <script type="module" src="./profile-and-dashboard-fixes.js?v=modules-1"></script>
-  <script type="module" src="./admin-user-management.js?v=modules-1"></script>
-  <script type="module" src="./management-fixes-stable-v21.js?v=modules-1"></script>
-  <script type="module" src="./completed-report-group-v22.js?v=modules-1"></script>
-  <script type="module" src="./notifications-v23.js?v=modules-1"></script>
-  <script type="module" src="./receipt-dashboard-phase1-v24.js?v=modules-1"></script>
-  <script type="module" src="./dashboard-summary-export-v25.js?v=modules-1"></script>
-  <script type="module" src="./report-history-v28.js?v=modules-1"></script>
-  <script type="module" src="./report-view-toggle-v27.js?v=modules-1"></script>
-</body>
+        <section id="dashboard">
+          <div class="quick overview-metrics">
+            <div class="card">
+              <span class="metric-symbol" aria-hidden="true"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <rect x="5" y="3" width="14" height="18" rx="2" />
+                  <path d="M8 8h8M8 12h8M8 16h5" /></svg
+              ></span>
+              <div class="muted">Total reports</div>
+              <strong id="kReports">0</strong>
+            </div>
+            <div class="card">
+              <span class="metric-symbol metric-violet" aria-hidden="true"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14z" /></svg
+              ></span>
+              <div class="muted">Drafts</div>
+              <strong id="kDraft">0</strong>
+            </div>
+            <div class="card">
+              <span class="metric-symbol metric-amber" aria-hidden="true"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path d="M5 19 19 5M6 5h13v13" /></svg
+              ></span>
+              <div class="muted">Submitted</div>
+              <strong id="kSubmitted">0</strong>
+            </div>
+            <div class="card">
+              <span class="metric-symbol metric-green" aria-hidden="true"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <rect x="5" y="3" width="14" height="18" rx="2" />
+                  <path d="M8 7h8M8 11h5m-5 5 2 2 5-5" /></svg
+              ></span>
+              <div class="muted">Receipts attached</div>
+              <strong id="kReceipts">0</strong>
+            </div>
+          </div>
+          <div id="budgetSummary" class="quick"></div>
+          <div class="toolbar">
+            <div>
+              <h2 id="reportTitle">My Reports</h2>
+              <p id="reportSubtitle">
+                Loaded from Firestore for the signed-in user.
+              </p>
+            </div>
+            <button onclick="newReport()">+ Create Report</button>
+          </div>
+          <div id="reportList" class="report-list" aria-busy="true"></div>
+        </section>
+
+        <section id="editor" class="hide">
+          <section class="card meta">
+            <div class="section-heading">
+              <span class="section-step">01</span>
+              <div>
+                <h2>Report details</h2>
+                <p>Start with the purpose and dates of your trip.</p>
+              </div>
+            </div>
+            <label
+              >Employee Name<input
+                id="employee"
+                placeholder="Full name as shown in company record"
+            /></label>
+            <label
+              >Company / Department<input
+                id="company"
+                placeholder="Company, department, or entity"
+            /></label>
+            <label
+              >Business Purpose / Trip Purpose<input
+                id="purpose"
+                placeholder="Example: Site visit, vendor meeting, pre-opening support"
+            /></label>
+            <label
+              >Claim Currency<select
+                id="reportCurrency"
+                onchange="calc()"
+              ></select
+            ></label>
+            <label
+              >Expense Period From<input
+                id="fromDate"
+                type="date"
+                onchange="calc()"
+            /></label>
+            <label>Expense Period To<input id="toDate" type="date" /></label>
+            <label
+              >Destination / Location<input
+                id="destination"
+                placeholder="City / country or project location"
+            /></label>
+            <label
+              >Cost Center / Project Code<input
+                id="costCenter"
+                placeholder="Optional cost center or project code"
+            /></label>
+          </section>
+          <div class="toolbar">
+            <div>
+              <h2>Expense items</h2>
+              <p>
+                Fiscal year is calculated from the Expense Period From date. FY
+                runs from 1 Nov to 31 Oct.
+              </p>
+            </div>
+            <div class="top-actions">
+              <button class="secondary" onclick="saveReport('Draft')">
+                Save Draft
+              </button>
+              <button onclick="saveReport('Submitted')">Submit report</button>
+              <button class="secondary" onclick="exportPdf()">
+                Export PDF
+              </button>
+            </div>
+          </div>
+          <section class="layout">
+            <div>
+              <div id="items" class="items"></div>
+              <button class="secondary add" onclick="addItem()">
+                + Add Expense
+              </button>
+            </div>
+            <aside class="side">
+              <div class="card">
+                <h3>Summary</h3>
+                <p class="muted">Total converted</p>
+                <div id="sideTotal" class="amount">HKD 0.00</div>
+                <p id="itemTotal">Items: 0</p>
+                <p class="muted">Fiscal Year</p>
+                <div id="fyText" class="pill">FY</div>
+                <p class="muted">Currency used</p>
+                <div id="currencyUsed"></div>
+              </div>
+              <div class="card">
+                <h3>Receipt Overview</h3>
+                <p id="receiptText">0 of 0 attached</p>
+                <div class="bar">
+                  <span id="receiptBar" style="width: 0%"></span>
+                </div>
+              </div>
+              <div class="card note">
+                <strong>Currency note</strong>
+                <p class="small">
+                  Check the reference rate on XE, then enter it for each
+                  expense. Your converted amount appears instantly.
+                </p>
+                <a
+                  class="button-link"
+                  href="https://www.xe.com/currencyconverter/"
+                  target="_blank"
+                  rel="noreferrer"
+                  >Open XE</a
+                >
+              </div>
+              <button class="danger" onclick="clearForm()">Clear Form</button>
+            </aside>
+          </section>
+        </section>
+
+        <section id="admin" class="hide">
+          <div class="toolbar">
+            <div>
+              <h2>Management Portal</h2>
+              <p id="adminScopeText">
+                Combined Manager, Finance, and Admin workspace.
+              </p>
+            </div>
+            <button class="secondary" onclick="refreshAdmin()">Refresh</button>
+          </div>
+          <div class="admin-grid">
+            <div class="card">
+              <div class="muted">Your role</div>
+              <strong id="myRoleText">user</strong>
+            </div>
+            <div class="card">
+              <div class="muted">Manager Queue</div>
+              <strong id="adminSubmittedCount">0</strong>
+            </div>
+            <div class="card">
+              <div class="muted">Users</div>
+              <strong id="adminUserCount">0</strong>
+            </div>
+          </div>
+          <div class="card table-card section-gap">
+            <div class="admin-note">
+              <h3>Manager Review</h3>
+              <p class="muted">
+                Manager reviews submitted expense reports, checks budget impact,
+                then approves, rejects, or requests revision.
+              </p>
+            </div>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Purpose</th>
+                    <th>FY</th>
+                    <th>Total HKD</th>
+                    <th>Budget Impact</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="reviewReports">
+                  <tr>
+                    <td colspan="7">
+                      Use Refresh after login to load submitted reports.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card table-card section-gap">
+            <div class="admin-note">
+              <h3>Reimbursement Processing</h3>
+              <p class="muted">
+                Finance processes manager-approved reports and marks
+                reimbursement status.
+              </p>
+            </div>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Queue</th>
+                    <th>Status</th>
+                    <th>Next Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Ready for reimbursement</td>
+                    <td>Manager Approved</td>
+                    <td>Mark Reimbursement Processing</td>
+                  </tr>
+                  <tr>
+                    <td>Payment completed</td>
+                    <td>Reimbursed</td>
+                    <td>Add payment reference</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div id="adminUsersCard" class="card table-card section-gap">
+            <div class="admin-note">
+              <h3>Admin Tools: User Management</h3>
+              <p class="muted">
+                Admin can change roles and assign Manager / Finance / Admin
+                access.
+              </p>
+            </div>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Updated</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUsers"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="budgetAdminCard" class="card table-card section-gap">
+            <div class="admin-note">
+              <h3>Admin Tools: Budget Management</h3>
+              <p class="muted">
+                Set annual user budget. Fiscal Year runs 1 Nov to 31 Oct.
+              </p>
+              <label style="max-width: 180px"
+                >Fiscal Year<select
+                  id="budgetFySelect"
+                  onchange="adminDash()"
+                ></select
+              ></label>
+            </div>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Budget HKD</th>
+                    <th>Used</th>
+                    <th>Pending</th>
+                    <th>Available</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="budgetRows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card table-card section-gap">
+            <div class="admin-note">
+              <h3>All / Visible Reports</h3>
+              <p class="muted">
+                Admin sees all reports. Manager sees submitted and reviewed
+                reports.
+              </p>
+            </div>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Purpose</th>
+                    <th>Status</th>
+                    <th>User</th>
+                    <th>Total HKD</th>
+                  </tr>
+                </thead>
+                <tbody id="adminReports"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="firebase" class="hide">
+          <div class="toolbar">
+            <div>
+              <h2>System Status</h2>
+              <p>Connection and next implementation status.</p>
+            </div>
+          </div>
+          <div class="firebase-grid">
+            <div class="card">
+              <h3>Authentication</h3>
+              <p id="authStatus" class="muted">Waiting for sign-in.</p>
+            </div>
+            <div class="card">
+              <h3>Firestore</h3>
+              <p class="muted">
+                Collections: users, expenseReports, budgets, approvalLogs,
+                notifications
+              </p>
+            </div>
+            <div class="card">
+              <h3>Workflow</h3>
+              <p class="muted">
+                Draft → Submitted → Manager Approved → Reimbursement Processing
+                → Reimbursed
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </section>
+    <script type="module" src="./firebase-app.js?v=expensio-20261112"></script>
+    <script type="module" src="./management-v2.js?v=expensio-20261112"></script>
+    <script
+      type="module"
+      src="./register-profile.js?v=expensio-20261112"
+    ></script>
+    <script type="module" src="./ux-hybrid.js?v=expensio-20261112"></script>
+    <script
+      type="module"
+      src="./profile-and-dashboard-fixes.js?v=modules-1"
+    ></script>
+    <script type="module" src="./admin-user-management.js?v=modules-1"></script>
+    <script
+      type="module"
+      src="./management-fixes-stable-v21.js?v=expensio-20261112"
+    ></script>
+    <script
+      type="module"
+      src="./completed-report-group-v22.js?v=modules-1"
+    ></script>
+    <script type="module" src="./notifications-v23.js?v=modules-1"></script>
+    <script
+      type="module"
+      src="./receipt-dashboard-phase1-v24.js?v=modules-1"
+    ></script>
+    <script
+      type="module"
+      src="./dashboard-summary-export-v25.js?v=expensio-20261112"
+    ></script>
+    <script
+      type="module"
+      src="./report-history-v28.js?v=expensio-20261112"
+    ></script>
+    <script
+      type="module"
+      src="./report-view-toggle-v27.js?v=expensio-20261112"
+    ></script>
+  </body>
 </html>
