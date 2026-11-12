@@ -344,20 +344,17 @@ label {
 }
 .quick,
 .admin-grid,
-.firebase-grid,
 .mgmt-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 22px;
 }
-.admin-grid,
-.firebase-grid {
+.admin-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .quick .card,
 .admin-grid .card,
-.firebase-grid .card,
 .mgmt-summary .card {
   padding: 20px;
 }
@@ -1236,12 +1233,10 @@ label {
   }
   .quick,
   .admin-grid,
-  .firebase-grid,
   .mgmt-summary {
     gap: 10px;
   }
-  .admin-grid,
-  .firebase-grid {
+  .admin-grid {
     grid-template-columns: 1fr;
   }
   .toolbar {

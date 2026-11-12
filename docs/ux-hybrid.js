@@ -20,9 +20,8 @@ function buildHybridShell() {
       '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
     admin:
       '<path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z"/><path d="m8 12 3 3 5-6"/>',
-    firebase: '<circle cx="12" cy="12" r="9"/><path d="m5 12 4-4 4 8 3-4h3"/>',
   };
-  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button><button data-view="firebase">${icon(icons.firebase)}<span>System status</span></button></nav></div><div class="side-footer"><strong>Expensio</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
+  aside.innerHTML = `<div><p class="sidebar-title">Workspace</p><nav class="side-nav" aria-label="Main navigation"><button data-view="dashboard" class="active" aria-current="page">${icon(icons.dashboard)}<span>Overview</span></button><button data-view="editor">${icon(icons.editor)}<span>Expense reports</span></button><button data-view="admin" id="side-admin">${icon(icons.admin)}<span>Management</span></button></nav></div><div class="side-footer"><strong>Expensio</strong>Suisseland Group<br>Every expense. One clear view.</div>`;
   main.classList.add("main-workspace");
   header.after(shell);
   shell.appendChild(aside);
@@ -54,7 +53,6 @@ function updateSideNav(view) {
       "Keep the details together. We’ll take care of the totals.",
     ],
     admin: ["Management", "Review, approve and track your team’s expenses."],
-    firebase: ["System status", "Your workspace connection and workflow."],
   };
   const [title, description] = titles[view] || titles.dashboard;
   if (qs("workspaceTitle")) qs("workspaceTitle").textContent = title;

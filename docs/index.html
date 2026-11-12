@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="./styles.css?v=expensio-20261112" />
-    <link rel="stylesheet" href="./ux-hybrid.css?v=expensio-20261112" />
+    <link rel="stylesheet" href="./ux-hybrid.css?v=nav-cleanup-20261112" />
     <link
       rel="stylesheet"
       href="./admin-user-management.css?v=expensio-20261112"
@@ -164,9 +164,6 @@
           </button>
           <button id="tab-admin" class="tab hide" onclick="showView('admin')">
             Management Portal
-          </button>
-          <button id="tab-firebase" class="tab" onclick="showView('firebase')">
-            System Status
           </button>
         </div>
 
@@ -513,44 +510,18 @@
             </div>
           </div>
         </section>
-
-        <section id="firebase" class="hide">
-          <div class="toolbar">
-            <div>
-              <h2>System Status</h2>
-              <p>Connection and next implementation status.</p>
-            </div>
-          </div>
-          <div class="firebase-grid">
-            <div class="card">
-              <h3>Authentication</h3>
-              <p id="authStatus" class="muted">Waiting for sign-in.</p>
-            </div>
-            <div class="card">
-              <h3>Firestore</h3>
-              <p class="muted">
-                Collections: users, expenseReports, budgets, approvalLogs,
-                notifications
-              </p>
-            </div>
-            <div class="card">
-              <h3>Workflow</h3>
-              <p class="muted">
-                Draft → Submitted → Manager Approved → Reimbursement Processing
-                → Reimbursed
-              </p>
-            </div>
-          </div>
-        </section>
       </main>
     </section>
-    <script type="module" src="./firebase-app.js?v=expensio-20261112"></script>
+    <script
+      type="module"
+      src="./firebase-app.js?v=nav-cleanup-20261112"
+    ></script>
     <script type="module" src="./management-v2.js?v=expensio-20261112"></script>
     <script
       type="module"
       src="./register-profile.js?v=expensio-20261112"
     ></script>
-    <script type="module" src="./ux-hybrid.js?v=expensio-20261112"></script>
+    <script type="module" src="./ux-hybrid.js?v=nav-cleanup-20261112"></script>
     <script
       type="module"
       src="./profile-and-dashboard-fixes.js?v=modules-1"

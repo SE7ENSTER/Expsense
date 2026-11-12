@@ -120,7 +120,7 @@
   }
   .side-nav {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 6px;
   }
   .side-nav button {
@@ -177,5 +177,11 @@
   }
   .nav-icon {
     flex-shrink: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .side-nav button:last-child:nth-child(odd) {
+    grid-column: 1/-1;
   }
 }
