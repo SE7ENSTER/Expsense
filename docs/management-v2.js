@@ -1,3 +1,10 @@
+import {
+  REPORT_EVENTS,
+  REPORT_TIME_LABEL,
+  reportEventTime,
+  formatReportTimestamp,
+  timestampMonth,
+} from "./report-timeline.js";
 import { formatReportDate } from "./report-dates.js";
 import { db } from "./firebase-client.js";
 import { on, emit } from "./app-events.js";
@@ -116,6 +123,8 @@ function filter(scope = "mgmt") {
     fy: $(scope + "FyFilter")?.value || "All",
     st: $(scope + "StatusFilter")?.value || "All",
     q: ($(scope + "EmployeeFilter")?.value || "").toLowerCase().trim(),
+    month: $(scope + "MonthFilter")?.value || "",
+    event: $(scope + "EventFilter")?.value || "submittedAt",
   };
 }
 function rows(scope = "mgmt") {
@@ -126,7 +135,8 @@ function rows(scope = "mgmt") {
     return (
       (f.fy === "All" || reportFy(r) === f.fy) &&
       (f.st === "All" || r.status === f.st) &&
-      (!f.q || txt.includes(f.q))
+      (!f.q || txt.includes(f.q)) &&
+      (!f.month || timestampMonth(reportEventTime(r, f.event)) === f.month)
     );
   });
 }
@@ -161,13 +171,15 @@ function injectFilter() {
       .map((value) => `<option>${value}</option>`)
       .join(
         "",
-      )}</select></label><label>Status<select id="${prefix}StatusFilter">${["All", "Draft", "Submitted", "Manager Approved", "Finance Processing", "Reimbursement Processing", "Reimbursed", "Rejected", "Revision Requested", "Closed"].map((value) => `<option>${value}</option>`).join("")}</select></label><label>Employee / Email<input id="${prefix}EmployeeFilter" placeholder="Search"></label><div class="mgmt-actions"><button class="secondary" id="${prefix}Apply">Apply</button><button class="secondary" id="${prefix}Clear">Clear</button></div>${prefix === "allReports" ? '<button id="exportCsvBtn">Export CSV</button>' : ""}`;
+      )}</select></label><label>Status<select id="${prefix}StatusFilter">${["All", "Draft", "Submitted", "Manager Approved", "Finance Processing", "Reimbursement Processing", "Reimbursed", "Rejected", "Revision Requested", "Closed"].map((value) => `<option>${value}</option>`).join("")}</select></label><label>Employee / Email<input id="${prefix}EmployeeFilter" placeholder="Search"></label><label>Event date<select id="${prefix}EventFilter">${REPORT_EVENTS.map(([key, label]) => `<option value="${key}">${label}</option>`).join("")}</select></label><label>Month<input type="month" id="${prefix}MonthFilter"><small>${REPORT_TIME_LABEL} · Blank = all months</small></label><div class="mgmt-actions"><button class="secondary" id="${prefix}Apply">Apply</button><button class="secondary" id="${prefix}Clear">Clear</button></div>${prefix === "allReports" ? '<button id="exportCsvBtn">Export CSV</button>' : ""}`;
     host.appendChild(box);
     $(prefix + "Apply").onclick = renderAll;
     $(prefix + "Clear").onclick = () => {
       $(prefix + "FyFilter").value = "All";
       $(prefix + "StatusFilter").value = "All";
       $(prefix + "EmployeeFilter").value = "";
+      $(prefix + "MonthFilter").value = "";
+      $(prefix + "EventFilter").value = "submittedAt";
       renderAll();
     };
   }
@@ -347,6 +359,8 @@ function renderQueue() {
           "Reimbursement Processing",
           "Rejected",
           "Revision Requested",
+          "Reimbursed",
+          "Closed",
         ].includes(r.status)
       : isFinance()
         ? [
@@ -354,6 +368,7 @@ function renderQueue() {
             "Finance Processing",
             "Reimbursement Processing",
             "Reimbursed",
+            "Closed",
           ].includes(r.status)
         : false,
   );
@@ -437,6 +452,22 @@ window.reviewReport = async (id, receiptsOnly = false) => {
       )
       .join("") || '<p class="muted">No receipt attached.</p>'
   }</div></div>`;
+  const timeline = document.createElement("section");
+  timeline.className = "workflow-timeline";
+  timeline.innerHTML = `<h3>Workflow timeline <small>${REPORT_TIME_LABEL}</small></h3><dl class="workflow-milestones">${REPORT_EVENTS.filter(
+    ([event]) =>
+      event !== "closedAt" ||
+      r.status === "Closed" ||
+      reportEventTime(r, event),
+  )
+    .map(
+      ([event, label]) =>
+        `<div><dt>${esc(label)}</dt><dd>${esc(formatReportTimestamp(reportEventTime(r, event)))}</dd></div>`,
+    )
+    .join(
+      "",
+    )}</dl><p class="small muted">Submission time reflects the latest successful submission. Missing historical times are not inferred from edits.</p>`;
+  modal.querySelector(".review-head").after(timeline);
   modal.querySelector("[data-review-close]").onclick = () => modal.remove();
   if (
     !receiptsOnly &&
@@ -546,6 +577,9 @@ window.managerAction = async (id, status, batchComment) => {
       managerEmail: me.email,
       managerComment: c || "",
       managerActionAt: serverTimestamp(),
+      ...(status === "Manager Approved"
+        ? { managerApprovedAt: serverTimestamp() }
+        : {}),
       updatedAt: serverTimestamp(),
     },
     { comment: c || "" },
@@ -559,11 +593,7 @@ window.financeAction = async (id, status) => {
   }
   const r = reports.find((x) => x.id === id);
   const processing = (value) =>
-    [
-      "Finance Processing",
-      "Reimbursement Processing",
-      "Reimbursement Processing",
-    ].includes(value);
+    ["Finance Processing", "Reimbursement Processing"].includes(value);
   if (
     !r ||
     !(
@@ -592,6 +622,11 @@ window.financeAction = async (id, status) => {
       paymentReference: paid ? ref : r.paymentReference || "",
       financeRemark: ref || "",
       financeActionAt: serverTimestamp(),
+      ...(r.status === "Manager Approved" && processing(status)
+        ? { financeApprovedAt: serverTimestamp() }
+        : {}),
+      ...(status === "Reimbursed" ? { reimbursedAt: serverTimestamp() } : {}),
+      ...(status === "Closed" ? { closedAt: serverTimestamp() } : {}),
       updatedAt: serverTimestamp(),
     },
     { reference: ref || "" },
@@ -647,6 +682,20 @@ window.exportPdf = async () => {
     y + 42,
   );
   y = 64;
+  pdf.setFontSize(8);
+  pdf.text("Workflow timeline - " + REPORT_TIME_LABEL, 14, y);
+  y += 6;
+  for (const [event, label] of REPORT_EVENTS.filter(
+    ([event]) => event !== "closedAt" || rep.closedAt,
+  )) {
+    pdf.text(
+      label + ": " + formatReportTimestamp(reportEventTime(rep, event)),
+      14,
+      y,
+    );
+    y += 5;
+  }
+  y += 4;
   pdf.setFont("helvetica", "bold");
   [
     ["Date", 14],
@@ -715,6 +764,7 @@ function exportCsv() {
       "Purpose",
       "Total HKD",
       "Payment Ref",
+      ...REPORT_EVENTS.map(([, label]) => label + " at - " + REPORT_TIME_LABEL),
     ],
     lines = [h.join(",")].concat(
       rows("allReports").map((r) => {
@@ -728,6 +778,11 @@ function exportCsv() {
           m.purpose || "",
           rawTotal(r),
           r.paymentReference || "",
+          ...REPORT_EVENTS.map(([event]) =>
+            reportEventTime(r, event)
+              ? formatReportTimestamp(reportEventTime(r, event))
+              : "",
+          ),
         ]
           .map((x) => '"' + String(x).replaceAll('"', '""') + '"')
           .join(",");

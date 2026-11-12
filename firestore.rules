@@ -79,6 +79,8 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && (numberUnchanged() || (missingNumber(resource.data) && validAssignedNumber(request.resource.data, reportId)))
         && validInternalId(reportId)
+        && ((request.resource.data.status == 'Submitted' && request.resource.data.submittedAt == request.time)
+          || (request.resource.data.status == 'Draft' && unchangedField('submittedAt')))
         && changed().hasOnly(['id','docId','meta','items','totalHkd','fiscalYear',
           'status','updatedAt','submittedAt','reportNo','runNumber','numberingYear']);
     }
@@ -88,8 +90,10 @@ service cloud.firestore {
         && data.status in ['Manager Approved','Rejected','Revision Requested']
         && identityUnchanged()
         && changed().hasOnly(['status','managerStatus','managerId','managerEmail',
-          'managerComment','managerActionAt','updatedAt'])
+          'managerComment','managerActionAt','managerApprovedAt','updatedAt'])
         && data.managerId == request.auth.uid
+        && data.managerActionAt == request.time
+        && (data.status == 'Manager Approved' ? data.managerApprovedAt == request.time : unchangedField('managerApprovedAt'))
         && (data.status == 'Manager Approved' || nonblank(data.get('managerComment', '')));
     }
     function financeEdit() {
@@ -99,9 +103,16 @@ service cloud.firestore {
         && ((from == 'Manager Approved' && processing(data.status))
           || (processing(from) && (processing(data.status) || data.status in ['Reimbursed','Closed'])))
         && changed().hasOnly(['status','financeStatus','financeBy','financeEmail',
-          'paymentReference','financeRemark','financeActionAt','updatedAt'])
+          'paymentReference','financeRemark','financeActionAt','financeApprovedAt','reimbursedAt','closedAt','updatedAt'])
         && data.financeBy == request.auth.uid
+        && data.financeActionAt == request.time
+        && (from == 'Manager Approved' && processing(data.status) ? data.financeApprovedAt == request.time : unchangedField('financeApprovedAt'))
+        && (data.status == 'Reimbursed' ? data.reimbursedAt == request.time : unchangedField('reimbursedAt'))
+        && (data.status == 'Closed' ? data.closedAt == request.time : unchangedField('closedAt'))
         && (!(data.status in ['Reimbursed','Closed']) || nonblank(data.get('paymentReference', '')));
+    }
+    function unchangedField(field) {
+      return request.resource.data.get(field, null) == resource.data.get(field, null);
     }
 
     match /users/{userId} {
@@ -133,6 +144,7 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status in ['Draft','Submitted']
         && request.resource.data.createdAt == request.time
+        && (request.resource.data.status == 'Submitted' ? request.resource.data.submittedAt == request.time : request.resource.data.get('submittedAt', null) == null)
         && request.resource.data.keys().hasOnly(['id','docId','userId','userEmail',
           'status','meta','items','totalHkd','fiscalYear','createdAt','updatedAt','submittedAt',
           'reportNo','runNumber','numberingYear'])

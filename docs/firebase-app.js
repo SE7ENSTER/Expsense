@@ -585,6 +585,7 @@ window.saveReport = async (status = "Draft") => {
       status,
       updatedAt: serverTimestamp(),
     };
+    if (status === "Submitted") data.submittedAt = serverTimestamp();
     if (!wasSaved) {
       data.userId = user.uid;
       data.userEmail = user.email;

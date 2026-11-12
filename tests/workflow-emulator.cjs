@@ -216,6 +216,7 @@ async function waitFor(check) {
       },
     );
     const finance = await actor("finance", "finance");
+    let processingMilestone;
     await refresh(finance);
     await check(
       "Finance cannot skip Processing, then starts canonical Processing",
@@ -238,6 +239,12 @@ async function waitFor(check) {
           finance.document.getElementById("reviewReports").textContent,
           /Workflow emulator/,
         );
+        const saved = await read("owner", id);
+        processingMilestone = saved.financeApprovedAt;
+        assert.equal(
+          processingMilestone.toMillis(),
+          saved.financeActionAt.toMillis(),
+        );
       },
     );
     await check(
@@ -258,10 +265,71 @@ async function waitFor(check) {
         assert.equal(final.status, "Reimbursed");
         assert.equal(final.totalHkd, 50);
         assert.equal(final.paymentReference, "BANK-TEST-001");
+        assert.equal(
+          final.managerApprovedAt.toMillis(),
+          final.managerActionAt.toMillis(),
+        );
+        assert.equal(
+          final.financeApprovedAt.toMillis(),
+          processingMilestone.toMillis(),
+        );
+        assert.equal(
+          final.reimbursedAt.toMillis(),
+          final.financeActionAt.toMillis(),
+        );
+        assert.ok(final.createdAt.toMillis() <= final.submittedAt.toMillis());
+        assert.ok(
+          final.submittedAt.toMillis() <= final.managerApprovedAt.toMillis(),
+        );
+        assert.ok(
+          final.managerApprovedAt.toMillis() <=
+            final.financeApprovedAt.toMillis(),
+        );
+        assert.ok(
+          final.financeApprovedAt.toMillis() <= final.reimbursedAt.toMillis(),
+        );
         const logs = await sdk.getDocs(
           sdk.collection(actors.finance.db, "paymentLogs"),
         );
         assert.equal(logs.size, 2);
+      },
+    );
+    await check(
+      "Server timestamps drive the Finance monthly filter and report timeline",
+      async () => {
+        const final = await read("owner", id),
+          local = new Date(final.reimbursedAt.toMillis() + 7 * 3600000);
+        const month =
+          local.getUTCFullYear() +
+          "-" +
+          String(local.getUTCMonth() + 1).padStart(2, "0");
+        finance.window.showView("admin-reports");
+        finance.document.getElementById("allReportsEventFilter").value =
+          "reimbursedAt";
+        finance.document.getElementById("allReportsMonthFilter").value = month;
+        finance.document.getElementById("allReportsApply").onclick();
+        assert.match(
+          finance.document.getElementById("adminReports").textContent,
+          /Workflow emulator/,
+        );
+        finance.document.getElementById("allReportsMonthFilter").value =
+          "1999-01";
+        finance.document.getElementById("allReportsApply").onclick();
+        assert.doesNotMatch(
+          finance.document.getElementById("adminReports").textContent,
+          /Workflow emulator/,
+        );
+        finance.document.getElementById("allReportsClear").onclick();
+        await finance.window.reviewReport(id);
+        assert.match(
+          finance.document.querySelector(".workflow-timeline").textContent,
+          /Bangkok \(UTC\+7\)/,
+        );
+        assert.doesNotMatch(
+          finance.document.querySelector(".workflow-timeline").textContent,
+          /Not recorded/,
+        );
+        finance.document.querySelector("[data-review-close]").click();
       },
     );
     await check(
@@ -380,6 +448,61 @@ async function waitFor(check) {
           (d) => d.data().reportNo,
         );
         assert.equal(new Set(numbers).size, 4);
+      },
+    );
+    await check(
+      "User can Submit a new report directly with server submission time",
+      async () => {
+        owner.window.newReport();
+        for (const [field, value] of Object.entries({
+          employee: "Workflow Test",
+          purpose: "Direct submission",
+          destination: "Bangkok",
+          fromDate: "2026-11-02",
+          toDate: "2026-11-04",
+        }))
+          owner.document.getElementById(field).value = value;
+        const itemId =
+          owner.document.querySelector("[data-fx-input]").dataset.fxInput;
+        for (const [field, value] of Object.entries({
+          date: "2026-11-02",
+          desc: "Taxi",
+          currency: "THB",
+          amount: 40,
+          fx: 0.25,
+        }))
+          owner.window.setVal(itemId, field, value);
+        assert.equal(
+          await owner.window.saveReport("Submitted"),
+          true,
+          owner.alerts.join("\n"),
+        );
+        const own = await sdk.getDocs(
+          sdk.query(
+            sdk.collection(actors.owner.db, "expenseReports"),
+            sdk.where("userId", "==", "owner"),
+          ),
+        );
+        const direct = own.docs.find(
+          (document) => document.data().meta.purpose === "Direct submission",
+        );
+        assert.ok(direct);
+        assert.equal(direct.data().status, "Submitted");
+        assert.equal(
+          direct.data().createdAt.toMillis(),
+          direct.data().submittedAt.toMillis(),
+        );
+        await waitFor(async () => {
+          const notices = await sdk.getDocs(
+            sdk.query(
+              sdk.collection(actors.manager.db, "notifications"),
+              sdk.where("recipientRole", "==", "manager"),
+            ),
+          );
+          return notices.docs.some(
+            (document) => document.data().reportId === direct.id,
+          );
+        });
       },
     );
     await check("Unrelated user cannot read or change the report", async () => {
