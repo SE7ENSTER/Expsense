@@ -273,7 +273,6 @@ onAuthStateChanged(auth, async (u) => {
     emit("session", { user: u, profile });
     q("authView").classList.add("hide");
     q("appView").classList.remove("hide");
-    q("authStatus").textContent = `Signed in as ${u.email}`;
     initReportIfNeeded();
     await loadReports();
     if (version === sessionVersion) window.showView("dashboard");
@@ -283,7 +282,8 @@ onAuthStateChanged(auth, async (u) => {
   }
 });
 window.showView = (view) => {
-  ["dashboard", "editor", "firebase", "admin"].forEach((id) => {
+  if (!["dashboard", "editor", "admin"].includes(view)) view = "dashboard";
+  ["dashboard", "editor", "admin"].forEach((id) => {
     q(id).classList.toggle("hide", id !== view);
     q("tab-" + id).classList.toggle("active", id === view);
   });

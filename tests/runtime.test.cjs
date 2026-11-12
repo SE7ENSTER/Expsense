@@ -676,3 +676,28 @@ test("History edits update compact fields and a shrinking final page returns to 
   assert.equal(r.document.getElementById("historyReportsPrevious"), null);
   assert.deepEqual(r.errors, []);
 });
+
+test("user and admin navigation omit System Status and retired links return to Overview", async () => {
+  for (const role of ["user", "admin"]) {
+    const r = await createRuntime({ role });
+    await r.login();
+    assert.equal(r.document.querySelector('[data-view="firebase"]'), null);
+    assert.equal(r.document.getElementById("tab-firebase"), null);
+    assert.equal(r.document.getElementById("firebase"), null);
+    assert.equal(r.document.getElementById("authStatus"), null);
+    assert.equal(
+      r.document.getElementById("side-admin").classList.contains("hide"),
+      role === "user",
+    );
+    r.window.showView("firebase");
+    assert.equal(
+      r.document.getElementById("dashboard").classList.contains("hide"),
+      false,
+    );
+    assert.equal(
+      r.document.getElementById("workspaceTitle").textContent,
+      "Overview",
+    );
+    assert.deepEqual(r.errors, []);
+  }
+});
