@@ -1,5 +1,4 @@
 import { formatReportDate } from "./report-dates.js";
-import { requirePasswordChange } from "./account-security.js";
 import { showManagementPage } from "./management-pages.js";
 import { waitForUserProfile } from "./user-registration.js";
 import { auth, db } from "./firebase-client.js";
@@ -257,7 +256,6 @@ onAuthStateChanged(auth, async (u) => {
       await signOut(auth);
       return;
     }
-    if (!(await requirePasswordChange(u)) || version !== sessionVersion) return;
     emit("session", { user: u, profile });
     q("authView").classList.add("hide");
     q("appView").classList.remove("hide");

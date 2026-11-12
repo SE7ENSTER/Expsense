@@ -21,18 +21,5 @@
         ]
       }
     ]
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "expensio-account-security",
-      "runtime": "nodejs22",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "**/*.log",
-        "**/*test*"
-      ]
-    }
-  ]
+  }
 }

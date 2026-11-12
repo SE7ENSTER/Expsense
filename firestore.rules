@@ -299,7 +299,6 @@ service cloud.firestore {
     function signedInvoice(data) {
       let sender = data.from;
       let bank = data.payment;
-      let rows = data.items;
       return data.totalMinor > 0 && data.consent == true && data.signatureName.matches('(?s).*\\S.*')
         && data.signature.matches('data:image/png;base64,[A-Za-z0-9+/=]+')
         && data.signedAt == request.time && data.submittedAt == request.time
