@@ -1,73 +1,38 @@
-const STORAGE_KEY = "expenseflow_report_view_mode";
+// The dashboard has one compact view. Pagination never changes report order.
+const REPORT_PAGE_SIZE = 10;
+let activeReportPage = 0;
 let lastTableSignature = "";
-function preferredMode() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === "cards" || saved === "table") return saved;
-  const title = (
-    document.getElementById("reportTitle")?.textContent || ""
-  ).toLowerCase();
-  return title.includes("all") || title.includes("submitted")
-    ? "table"
-    : "cards";
-}
+const compactStatus = (status) =>
+  ({
+    "Manager Approved": "Approved",
+    "Finance Processing": "In progress",
+    "Reimbursement Processing": "In progress",
+    "Revision Requested": "Revision",
+    Reimbursed: "Paid",
+  })[status] || status;
 function parseCard(card) {
-  const click = card.getAttribute("onclick") || "";
-  const id =
-    (click.match(/openReport\(['\"]([^'\"]+)['\"]\)/) || [])[1] ||
-    card.dataset.reportId ||
-    "";
-  const status = card.querySelector(".pill")?.textContent?.trim() || "-";
-  const purpose =
-    card.querySelector("h3")?.textContent?.trim() || "Untitled report";
   const tripNode = card.querySelector("p.muted:not(.small)")?.cloneNode(true);
   tripNode?.querySelector(".report-no")?.remove();
-  const trip = tripNode?.textContent?.replace(/^\s*·\s*/, "").trim() || "-";
-  const email = card.querySelector("p.small.muted")?.textContent?.trim() || "-";
-  const amount = card.querySelector(".row strong")?.textContent?.trim() || "-";
-  const items = card.querySelector(".row .muted")?.textContent?.trim() || "-";
-  const next =
-    card
-      .querySelector(".next-step")
-      ?.textContent?.replace(/^Next step:\s*/i, "")
-      .trim() || "-";
-  const number =
-    card.dataset.reportNumber ||
-    card.querySelector(".report-no")?.textContent?.trim() ||
-    "";
   return {
-    id,
-    click,
-    number,
-    status,
-    purpose,
-    trip,
-    email,
-    amount,
-    items,
-    next,
+    id: card.dataset.reportId || "",
+    number: card.dataset.reportNumber || "Not assigned",
+    status: card.dataset.status || "Draft",
+    purpose: card.querySelector("h3")?.textContent?.trim() || "Untitled report",
+    trip: tripNode?.textContent?.replace(/^\s*·\s*/, "").trim() || "",
+    amount:
+      card.querySelector(".row strong")?.textContent?.trim() || "HKD 0.00",
   };
 }
-function signature(rows) {
-  return JSON.stringify(
-    rows.map((r) => [
-      r.id,
-      r.number,
-      r.status,
-      r.purpose,
-      r.trip,
-      r.email,
-      r.amount,
-      r.items,
-      r.next,
-    ]),
+function escapeHtml(value) {
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
   );
 }
-function reviewReport(id) {
-  if (!id) return;
-  if (typeof window.reviewReport === "function") window.reviewReport(id);
-  else if (typeof window.openReport === "function") window.openReport(id);
-}
-function buildTable(force = false) {
+function buildTable() {
   const list = document.getElementById("reportList");
   if (!list) return;
   let wrap = document.getElementById("reportTableWrap");
@@ -76,98 +41,68 @@ function buildTable(force = false) {
     wrap.id = "reportTableWrap";
     list.after(wrap);
   }
-  const cards = [...list.querySelectorAll(".report-card")].filter(
-    (c) => !c.classList.contains("history-hidden"),
+  const reports = [...list.querySelectorAll(".report-card")]
+    .filter((card) => !card.classList.contains("history-hidden"))
+    .map(parseCard);
+  if (!reports.length) activeReportPage = 0;
+  activeReportPage = Math.min(
+    Math.max(0, activeReportPage),
+    Math.max(0, Math.ceil(reports.length / REPORT_PAGE_SIZE) - 1),
   );
-  if (!cards.length) {
-    const empty =
-      list.getAttribute("aria-busy") === "true"
-        ? "Loading reports…"
-        : "No active reports.";
-    if (wrap.dataset.signature !== empty) {
-      wrap.innerHTML = '<div class="report-grid-empty">' + empty + "</div>";
-      wrap.dataset.signature = empty;
-      lastTableSignature = empty;
-    }
+  const start = activeReportPage * REPORT_PAGE_SIZE;
+  const rows = reports.slice(start, start + REPORT_PAGE_SIZE);
+  const empty =
+    list.getAttribute("aria-busy") === "true"
+      ? "Loading reports…"
+      : "No active reports.";
+  const signature = JSON.stringify([activeReportPage, reports, empty]);
+  if (signature === lastTableSignature && wrap.dataset.signature === signature)
+    return;
+  lastTableSignature = signature;
+  wrap.dataset.signature = signature;
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="report-grid-empty">${empty}</div>`;
     return;
   }
-  const rows = cards.map(parseCard),
-    sig = signature(rows);
-  if (sig === lastTableSignature && wrap.dataset.signature === sig) return;
-  lastTableSignature = sig;
-  wrap.dataset.signature = sig;
-  wrap.innerHTML = `<div class="report-table-scroll"><table class="report-grid"><thead><tr><th>Report No.</th><th>Status</th><th>Purpose / Trip</th><th>User</th><th>Total</th><th>Items</th><th>Next Step</th><th>Action</th></tr></thead><tbody>${rows.map((r, i) => `<tr data-report-row="${i}" data-report-id="${escapeHtml(r.id)}"><td data-label="Report No." class="cell-report-no">${escapeHtml(r.number || "Not assigned")}</td><td data-label="Status"><span class="pill ${r.status === "Submitted" ? "submitted" : ""}">${escapeHtml(r.status)}</span></td><td data-label="Purpose / Trip" class="cell-purpose">${escapeHtml(r.purpose)}<span class="cell-sub">${escapeHtml(r.trip)}</span></td><td data-label="User">${escapeHtml(r.email)}</td><td data-label="Total" class="cell-total">${escapeHtml(r.amount)}</td><td data-label="Items">${escapeHtml(r.items)}</td><td data-label="Next Step" class="cell-next">${escapeHtml(r.next)}</td><td data-label="Action"><button class="secondary review-btn" type="button" data-report-review="${escapeHtml(r.id)}">Review</button></td></tr>`).join("")}</tbody></table></div>`;
-  wrap.querySelectorAll("[data-report-row]").forEach((tr) =>
-    tr.addEventListener("click", (ev) => {
-      if (ev.target.closest("button")) return;
-      const r = rows[Number(tr.dataset.reportRow)];
-      if (r?.id && window.openReport) window.openReport(r.id);
-      else if (r?.click) Function(r.click)();
+  wrap.innerHTML = `<div class="report-table-scroll"><table class="report-grid compact-report-table" aria-label="Current reports"><thead><tr><th scope="col">Report No.</th><th scope="col">Purpose / Trip</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead><tbody>${rows.map((r, index) => `<tr data-report-row="${index}" data-report-id="${escapeHtml(r.id)}"><td data-label="Report No." class="cell-report-no"><button type="button" class="report-open" data-report-open="${escapeHtml(r.id)}" title="${escapeHtml(r.number)}">${escapeHtml(r.number)}</button></td><td data-label="Purpose / Trip" class="cell-purpose" title="${escapeHtml(r.purpose + " · " + r.trip)}">${escapeHtml(r.purpose)}</td><td data-label="Total" class="cell-total" title="${escapeHtml(r.amount)}">${escapeHtml(r.amount)}</td><td data-label="Status"><span class="pill ${r.status === "Submitted" ? "submitted" : ""}" title="${escapeHtml(r.status)}">${escapeHtml(compactStatus(r.status))}</span></td></tr>`).join("")}</tbody></table></div><div class="report-pagination"><span class="report-page-count" role="status" aria-live="polite">${start + 1}–${start + rows.length} of ${reports.length} reports</span><div>${start ? '<button type="button" class="secondary" id="currentReportsPrevious">Previous</button>' : ""}${start + rows.length < reports.length ? '<button type="button" class="secondary" id="currentReportsMore">More <span aria-hidden="true">→</span></button>' : ""}</div></div>`;
+  wrap.querySelectorAll("[data-report-row]").forEach((row) =>
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+      window.openReport?.(row.dataset.reportId);
     }),
   );
-  wrap.querySelectorAll("[data-report-review]").forEach((btn) =>
-    btn.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      reviewReport(btn.dataset.reportReview);
+  wrap.querySelectorAll("[data-report-open]").forEach((button) =>
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      window.openReport?.(button.dataset.reportOpen);
     }),
   );
-}
-function escapeHtml(value) {
-  return String(value || "").replace(
-    /[&<>\"]/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;" })[c] || c,
-  );
-}
-function applyMode(mode, force = false) {
-  const finalMode = mode === "table" ? "table" : "cards";
-  document.body.classList.toggle("report-table-mode", finalMode === "table");
-  document.body.classList.toggle("report-card-mode", finalMode === "cards");
+  const movePage = (delta) => {
+    activeReportPage += delta;
+    buildTable();
+    wrap.querySelector("[data-report-open]")?.focus?.();
+  };
   document
-    .querySelectorAll(".report-view-toggle button")
-    .forEach((btn) =>
-      btn.classList.toggle("active", btn.dataset.reportView === finalMode),
-    );
-  if (finalMode === "table") buildTable(force);
-}
-function setMode(mode) {
-  localStorage.setItem(STORAGE_KEY, mode);
-  applyMode(mode, true);
-}
-function injectToggle() {
-  const toolbar = document.querySelector("#dashboard>.toolbar");
-  if (!toolbar) return;
-  const titleBox = toolbar.querySelector("div");
-  if (titleBox && !titleBox.classList.contains("report-title-wrap"))
-    titleBox.classList.add("report-title-wrap");
-  if (!document.getElementById("reportViewToggle")) {
-    const toggle = document.createElement("div");
-    toggle.id = "reportViewToggle";
-    toggle.className = "report-view-toggle";
-    toggle.innerHTML =
-      '<button type="button" data-report-view="cards">Cards</button><button type="button" data-report-view="table">Table</button>';
-    if (titleBox) titleBox.after(toggle);
-    else toolbar.prepend(toggle);
-    toggle
-      .querySelectorAll("button")
-      .forEach((btn) =>
-        btn.addEventListener("click", () => setMode(btn.dataset.reportView)),
-      );
-  }
-  applyMode(preferredMode(), false);
-}
-function observeReports() {
-  const list = document.getElementById("reportList");
-  if (!list || list.__reportViewObserved) return;
-  list.__reportViewObserved = true;
-  new MutationObserver((mutations) => {
-    if (!mutations.some((m) => m.type === "childList" && m.target === list))
-      return;
-    applyMode(preferredMode(), false);
-  }).observe(list, { childList: true, subtree: false });
+    .getElementById("currentReportsMore")
+    ?.addEventListener("click", () => movePage(1));
+  document
+    .getElementById("currentReportsPrevious")
+    ?.addEventListener("click", () => movePage(-1));
 }
 function init() {
-  injectToggle();
-  observeReports();
+  document.body.classList.add("report-table-mode");
+  document.body.classList.remove("report-card-mode");
+  document.getElementById("reportViewToggle")?.remove();
+  const toolbar = document.querySelector("#dashboard > .toolbar");
+  toolbar?.querySelector("div")?.classList.add("report-title-wrap");
+  const list = document.getElementById("reportList");
+  if (list && !list.__reportViewObserved) {
+    list.__reportViewObserved = true;
+    new MutationObserver((mutations) => {
+      if (mutations.some((m) => m.type === "childList" && m.target === list))
+        buildTable();
+    }).observe(list, { childList: true });
+  }
+  buildTable();
 }
 init();
-console.log("ExpenseFlow report view toggle v27 stable review active");

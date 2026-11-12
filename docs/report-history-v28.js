@@ -1,5 +1,6 @@
 import { db } from "./firebase-client.js";
 import { on } from "./app-events.js";
+import { compareReports } from "./report-dashboard.js";
 import {
   collection,
   getDocs,
@@ -10,6 +11,16 @@ let me = null,
   profile = { role: "user" },
   historyReports = [];
 let lastHistorySignature = "";
+let historyPage = 0;
+const HISTORY_PAGE_SIZE = 10;
+const compactStatus = (status) =>
+  ({
+    "Manager Approved": "Approved",
+    "Finance Processing": "In progress",
+    "Reimbursement Processing": "In progress",
+    "Revision Requested": "Revision",
+    Reimbursed: "Paid",
+  })[status] || status;
 const DONE = ["Reimbursed", "Closed"];
 const $ = (id) => document.getElementById(id);
 const esc = (v) =>
@@ -32,21 +43,12 @@ function total(r) {
     (r.items || []).reduce((s, i) => s + (+i.amount || 0) * (+i.fx || 0), 0)
   );
 }
-function receipts(r) {
-  return (r.items || []).filter(
-    (i) => i.receiptData || i.receiptFileData || i.receiptName,
-  ).length;
-}
 function period(r) {
   const m = r.meta || {};
   return `${m.destination || "No destination"} · ${m.fromDate || "-"} to ${m.toDate || "-"}`;
 }
 function reportNo(r) {
   return r.reportNo || r.runNumber || r.id || "-";
-}
-function doneDate(r) {
-  const ts = r.paymentAt || r.reimbursedAt || r.updatedAt || r.createdAt;
-  return ts?.seconds ? new Date(ts.seconds * 1000).toLocaleDateString() : "-";
 }
 async function loadHistory() {
   if (!me) return;
@@ -66,9 +68,7 @@ async function loadHistory() {
     historyReports = snap.docs
       .map((d) => ({ ...d.data(), id: d.id }))
       .filter((r) => isDone(r.status))
-      .sort(
-        (a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0),
-      );
+      .sort(compareReports);
     renderHistory();
   } catch (e) {
     console.warn("History load failed", e.message);
@@ -95,14 +95,23 @@ function reviewHistory(id) {
 function renderHistory() {
   const section = ensureSection();
   if (!section) return;
-  const sig = JSON.stringify(
+  historyPage = Math.min(
+    Math.max(0, historyPage),
+    Math.max(0, Math.ceil(historyReports.length / HISTORY_PAGE_SIZE) - 1),
+  );
+  const start = historyPage * HISTORY_PAGE_SIZE;
+  const visible = historyReports.slice(start, start + HISTORY_PAGE_SIZE);
+  const sig = JSON.stringify([
+    historyPage,
     historyReports.map((r) => [
       r.id,
+      reportNo(r),
       r.status,
-      r.updatedAt?.seconds || 0,
-      r.paymentReference || "",
+      r.meta?.purpose,
+      period(r),
+      total(r),
     ]),
-  );
+  ]);
   if (sig === lastHistorySignature && section.innerHTML) return;
   lastHistorySignature = sig;
   if (!historyReports.length) {
@@ -111,24 +120,32 @@ function renderHistory() {
     return;
   }
   section.classList.remove("hide");
-  section.innerHTML = `<div class="history-card"><div class="history-head"><div><h2>History / Reimbursed Reports</h2><p>Completed reports moved from the active dashboard for easier tracking.</p></div><span class="history-badge">${historyReports.length} completed</span></div><div class="history-table-wrap"><table class="history-table"><thead><tr><th>Report No.</th><th>Status</th><th>Purpose / Trip</th><th>User</th><th>Total</th><th>Receipts</th><th>Completed</th><th>Action</th></tr></thead><tbody>${historyReports.map((r) => `<tr data-history-open="${esc(r.id)}"><td data-label="Report No.">${esc(reportNo(r))}</td><td data-label="Status"><span class="pill">${esc(r.status || "Reimbursed")}</span></td><td data-label="Purpose / Trip" class="history-purpose"><strong>${esc(r.meta?.purpose || "Untitled report")}</strong><span>${esc(period(r))}</span></td><td data-label="User">${esc(r.userEmail || "")}</td><td data-label="Total" class="history-total">${money(total(r))}</td><td data-label="Receipts">${receipts(r)}</td><td data-label="Completed">${doneDate(r)}</td><td data-label="Action"><button type="button" class="secondary review-btn" data-history-review="${esc(r.id)}">Review</button></td></tr>`).join("")}</tbody></table></div></div>`;
+  section.innerHTML = `<div class="history-card"><div class="history-head"><div><h2>History</h2><p>Completed expense reports, sorted by report number.</p></div><span class="history-badge">${historyReports.length} completed</span></div><div class="history-table-wrap"><table class="history-table compact-report-table" aria-label="Report history"><thead><tr><th scope="col">Report No.</th><th scope="col">Purpose / Trip</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead><tbody>${visible.map((r) => `<tr data-history-open="${esc(r.id)}"><td data-label="Report No."><button type="button" class="report-open" data-history-review="${esc(r.id)}" title="${esc(reportNo(r))}">${esc(reportNo(r))}</button></td><td data-label="Purpose / Trip" class="history-purpose" title="${esc((r.meta?.purpose || "Untitled report") + " · " + period(r))}">${esc(r.meta?.purpose || "Untitled report")}</td><td data-label="Total" class="history-total" title="${esc(money(total(r)))}">${money(total(r))}</td><td data-label="Status"><span class="pill" title="${esc(r.status)}">${esc(compactStatus(r.status || "Reimbursed"))}</span></td></tr>`).join("")}</tbody></table></div><div class="report-pagination"><span class="report-page-count" role="status" aria-live="polite">${start + 1}–${start + visible.length} of ${historyReports.length} reports</span><div>${start ? '<button type="button" class="secondary" id="historyReportsPrevious">Previous</button>' : ""}${start + visible.length < historyReports.length ? '<button type="button" class="secondary" id="historyReportsMore">More <span aria-hidden="true">→</span></button>' : ""}</div></div></div>`;
   section.querySelectorAll("[data-history-open]").forEach((row) =>
-    row.addEventListener("click", (ev) => {
-      if (ev.target.closest("button")) return;
-      if (window.openReport) window.openReport(row.dataset.historyOpen);
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+      reviewHistory(row.dataset.historyOpen);
     }),
   );
-  section.querySelectorAll("[data-history-review]").forEach((btn) =>
-    btn.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      reviewHistory(btn.dataset.historyReview);
+  section.querySelectorAll("[data-history-review]").forEach((button) =>
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      reviewHistory(button.dataset.historyReview);
     }),
   );
+  const movePage = (delta) => {
+    historyPage += delta;
+    renderHistory();
+    section.querySelector("[data-history-review]")?.focus?.();
+  };
+  $("historyReportsMore")?.addEventListener("click", () => movePage(1));
+  $("historyReportsPrevious")?.addEventListener("click", () => movePage(-1));
 }
 on("session", (data) => {
   me = data.user;
   profile = data.profile || { role: "user" };
   historyReports = [];
+  historyPage = 0;
   lastHistorySignature = "";
   $("reportHistorySection")?.remove();
 });
@@ -139,6 +156,6 @@ on("reports-loaded", async (data) => {
   }
   historyReports = data.reports
     .filter((r) => isDone(r.status))
-    .sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+    .sort(compareReports);
   renderHistory();
 });
