@@ -230,6 +230,6 @@ on("session", (data) => {
   exportReports = [];
 });
 on("reports-loaded", (data) => {
-  exportReports = data.reports;
+  exportReports = data.reports.filter((report) => report.userId === me?.uid);
 });
 on("summary-rendered", injectButtons);

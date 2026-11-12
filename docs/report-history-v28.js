@@ -1,14 +1,6 @@
-import { db } from "./firebase-client.js";
 import { on } from "./app-events.js";
 import { compareReports } from "./report-dashboard.js";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 let me = null,
-  profile = { role: "user" },
   historyReports = [];
 let lastHistorySignature = "";
 let historyPage = 0;
@@ -49,30 +41,6 @@ function period(r) {
 }
 function reportNo(r) {
   return r.reportNo || r.runNumber || r.id || "-";
-}
-async function loadHistory() {
-  if (!me) return;
-  const uid = me.uid;
-  try {
-    let rq;
-    if (profile.role === "admin") rq = collection(db, "expenseReports");
-    else if (profile.role === "finance")
-      rq = query(collection(db, "expenseReports"), where("status", "in", DONE));
-    else
-      rq = query(
-        collection(db, "expenseReports"),
-        where("userId", "==", me.uid),
-      );
-    const snap = await getDocs(rq);
-    if (me?.uid !== uid) return;
-    historyReports = snap.docs
-      .map((d) => ({ ...d.data(), id: d.id }))
-      .filter((r) => isDone(r.status))
-      .sort(compareReports);
-    renderHistory();
-  } catch (e) {
-    console.warn("History load failed", e.message);
-  }
 }
 function ensureSection() {
   const dashboard = $("dashboard"),
@@ -143,19 +111,14 @@ function renderHistory() {
 }
 on("session", (data) => {
   me = data.user;
-  profile = data.profile || { role: "user" };
   historyReports = [];
   historyPage = 0;
   lastHistorySignature = "";
   $("reportHistorySection")?.remove();
 });
 on("reports-loaded", async (data) => {
-  if (profile.role === "manager") {
-    await loadHistory();
-    return;
-  }
   historyReports = data.reports
-    .filter((r) => isDone(r.status))
+    .filter((r) => r.userId === me?.uid && isDone(r.status))
     .sort(compareReports);
   renderHistory();
 });

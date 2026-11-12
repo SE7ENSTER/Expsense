@@ -101,9 +101,7 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/slg-rules/node_modules
         run: |
           export PATH="$RUNNER_TEMP/slg-rules/node_modules/.bin:$PATH"
-          npm run test:rules
-          npm run test:workflow
-          npm run test:invoices
+          npm run test:release:rules
 
   verify-account-security:
     runs-on: ubuntu-latest

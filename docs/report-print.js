@@ -22,7 +22,7 @@ thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}
 .receipt-print-slot p{font-size:9pt;margin:0 0 3mm;overflow-wrap:anywhere;flex:0 0 auto}
 .receipt-print-image{flex:1;min-height:0;min-width:0}
 .receipt-print-image img{display:block;width:100%;height:100%;object-fit:scale-down;object-position:center}
-.receipt-print-empty{border-style:dashed}.receipt-only .receipt-print-page:first-child{break-before:auto;page-break-before:auto}
+.receipt-print-empty{border-style:dashed}.receipt-only .receipt-print-page:first-of-type{break-before:auto;page-break-before:auto}
 #print-status{color:#64748b;font-size:10pt}
 @media print{#print-status{display:none!important}}
 `;
@@ -31,9 +31,9 @@ export function prepareReviewPrint(modal) {
   box.querySelectorAll("button").forEach((button) => button.remove());
   const grid = box.querySelector(".receipt-grid");
   const receiptItems = grid ? [...grid.querySelectorAll(".receipt-item")] : [];
-  const receiptsOnly =
-    box.querySelector(".review-head h2")?.textContent.trim() ===
-    "Receipt Attachments";
+  const receiptsOnly = ["Receipt Attachments", "Receipt Review"].includes(
+    box.querySelector(".review-head h2")?.textContent.trim(),
+  );
   if (receiptItems.length) {
     const previous = grid.previousElementSibling;
     if (

@@ -90,7 +90,7 @@ async function waitFor(check) {
       ).data();
     }
     async function refresh(r) {
-      await r.window.refreshDashboardReports();
+      await r.window.refreshAdmin();
       await waitFor(() =>
         r.document
           .getElementById("reviewReports")

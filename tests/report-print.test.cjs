@@ -16,7 +16,7 @@ async function moduleFor(globals = {}) {
 function modal(count = 5, only = false) {
   const { document } = parseHTML(
     '<div class="review-modal"><div class="review-box"><div class="review-head"><div><h2>' +
-      (only ? "Receipt Attachments" : "Expense Report Review") +
+      (only ? "Receipt Review" : "Expense Report Review") +
       '</h2><span class="report-no">EXP-FY2027-000001</span></div><button>Close</button></div><div class="workflow-timeline">Timeline</div><h3>Receipts</h3><div class="receipt-grid">' +
       Array.from(
         { length: count },

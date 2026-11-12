@@ -11,6 +11,8 @@ import { on, emit } from "./app-events.js";
 import { reportNumber } from "./report-dashboard.js";
 import {
   collection,
+  query,
+  where,
   doc,
   getDocs,
   setDoc,
@@ -22,6 +24,10 @@ import {
 let me = null,
   profile = { role: "user" },
   reports = [],
+  personalReports = [],
+  managementReports = [],
+  managementSession = 0,
+  managementLoad = 0,
   users = [],
   budgets = [],
   activeReportId = "";
@@ -65,31 +71,69 @@ const statusCls = (s) => {
   if (s === "Rejected") return "red";
   return "gray";
 };
-async function loadData(refreshReports = true) {
+function rebuildManagementReports() {
+  const merged = new Map(
+    managementReports.map((report) => [report.id, report]),
+  );
+  for (const report of personalReports) merged.set(report.id, report);
+  reports = [...merged.values()];
+}
+function managementReportQuery() {
+  if (isAdmin()) return collection(db, "expenseReports");
+  const statuses = isManager()
+    ? [
+        "Submitted",
+        "Manager Approved",
+        "Rejected",
+        "Revision Requested",
+        "Finance Processing",
+        "Reimbursement Processing",
+        "Reimbursed",
+        "Closed",
+      ]
+    : [
+        "Manager Approved",
+        "Finance Processing",
+        "Reimbursement Processing",
+        "Reimbursed",
+        "Closed",
+      ];
+  return query(
+    collection(db, "expenseReports"),
+    where("status", "in", statuses),
+  );
+}
+async function loadData(refreshPersonal = true) {
   if (!me || !canManage()) return;
-  const uid = me.uid;
-  let nextUsers = [],
-    nextBudgets = [];
-  try {
-    nextUsers = (await getDocs(collection(db, "users"))).docs.map((d) => ({
-      ...d.data(),
-      id: d.id,
-    }));
-  } catch (error) {}
-  try {
-    nextBudgets = (await getDocs(collection(db, "budgets"))).docs.map((d) => ({
-      ...d.data(),
-      id: d.id,
-    }));
-  } catch (error) {}
-  if (me?.uid !== uid) return;
-  users = nextUsers;
-  budgets = nextBudgets;
-  if (refreshReports) {
-    const refreshed = await window.refreshDashboardReports?.();
-    if (refreshed) reports = refreshed;
-  }
-  if (me?.uid === uid) renderAll();
+  const uid = me.uid,
+    session = managementSession,
+    request = ++managementLoad;
+  const results = await Promise.allSettled([
+    getDocs(collection(db, "users")),
+    getDocs(collection(db, "budgets")),
+    getDocs(managementReportQuery()),
+    refreshPersonal ? window.refreshDashboardReports?.() : Promise.resolve(),
+  ]);
+  if (
+    me?.uid !== uid ||
+    session !== managementSession ||
+    request !== managementLoad
+  )
+    return;
+  const rowsFrom = (result) =>
+    result.status === "fulfilled"
+      ? result.value.docs.map((snapshot) => ({
+          ...snapshot.data(),
+          id: snapshot.id,
+        }))
+      : [];
+  users = rowsFrom(results[0]);
+  budgets = rowsFrom(results[1]);
+  managementReports = rowsFrom(results[2]);
+  if (results[2].status === "rejected")
+    alert("Cannot load management reports: " + results[2].reason.message);
+  rebuildManagementReports();
+  renderAll();
 }
 
 function bFor(uid, fy, excludeId = "") {
@@ -133,6 +177,7 @@ function rows(scope = "mgmt") {
     const m = r.meta || {},
       txt = (m.employee + " " + r.userEmail + " " + m.purpose).toLowerCase();
     return (
+      (scope !== "mgmt" || r.userId !== me?.uid) &&
       (f.fy === "All" || reportFy(r) === f.fy) &&
       (f.st === "All" || r.status === f.st) &&
       (!f.q || txt.includes(f.q)) &&
@@ -149,7 +194,7 @@ function renderAll() {
     renderVisible();
     if ($("adminSubmittedCount"))
       $("adminSubmittedCount").textContent = reports.filter(
-        (r) => r.status === "Submitted",
+        (r) => r.status === "Submitted" && r.userId !== me?.uid,
       ).length;
     if ($("adminUserCount")) $("adminUserCount").textContent = users.length;
     emit("management-rendered");
@@ -412,12 +457,14 @@ function renderVisible() {
     rows("allReports")
       .map((r) => {
         const m = r.meta || {};
-        return `<tr><td><span class="report-no">${esc(reportLabel(r))}</span></td><td>${esc(m.employee || "-")}</td><td>${esc(m.purpose || "-")}</td><td>${reportFy(r)}</td><td><span class="mgmt-chip ${statusCls(r.status)}">${esc(dispStatus(r.status))}</span></td><td>${esc(r.userEmail || "-")}</td><td>${money(rawTotal(r))}</td><td><button class="review-btn" onclick="reviewReport('${r.id}')">Review</button></td></tr>`;
+        return `<tr><td><span class="report-no">${esc(reportLabel(r))}</span></td><td>${esc(m.employee || "-")}${r.userId === me?.uid ? ' <span class="mgmt-chip gray my-report-badge">My report</span>' : ""}</td><td>${esc(m.purpose || "-")}</td><td>${reportFy(r)}</td><td><span class="mgmt-chip ${statusCls(r.status)}">${esc(dispStatus(r.status))}</span></td><td>${esc(r.userEmail || "-")}</td><td>${money(rawTotal(r))}</td><td><button class="review-btn" onclick="reviewReport('${r.id}')">Review</button></td></tr>`;
       })
       .join("") || '<tr><td colspan="8">No reports found.</td></tr>';
 }
 window.reviewReport = async (id, receiptsOnly = false) => {
-  let r = reports.find((x) => x.id === id);
+  let r =
+    personalReports.find((x) => x.id === id) ||
+    reports.find((x) => x.id === id);
   if (!r) {
     try {
       r = await window.getReportById(id);
@@ -506,8 +553,16 @@ async function commitAction(report, kind, payload, detail) {
     await runTransaction(db, async (transaction) => {
       const actorProfile = await transaction.get(doc(db, "users", actor.uid));
       const role = actorProfile.data()?.role;
-      if (!actorProfile.exists() || actorProfile.data().active === false || !(kind === "manager" ? ["admin", "manager"] : ["admin", "finance"]).includes(role))
-        throw new Error("Your access changed. Sign out and sign in again before reviewing reports.");
+      if (
+        !actorProfile.exists() ||
+        actorProfile.data().active === false ||
+        !(
+          kind === "manager" ? ["admin", "manager"] : ["admin", "finance"]
+        ).includes(role)
+      )
+        throw new Error(
+          "Your access changed. Sign out and sign in again before reviewing reports.",
+        );
       const snapshot = await transaction.get(reportRef);
       if (!snapshot.exists() || snapshot.data().status !== report.status)
         throw new Error(
@@ -807,19 +862,28 @@ on("report-opened", ({ report }) => {
   activeReportId = report.id;
 });
 on("reports-loaded", (data) => {
-  reports = data.reports;
+  if (!me || data.user?.uid !== me.uid) return;
+  personalReports = data.reports.filter((report) => report.userId === me.uid);
+  rebuildManagementReports();
   renderAll();
 });
 on("session", async (data) => {
+  managementSession++;
+  managementLoad++;
   me = data.user;
   profile = data.profile || { role: "user" };
   reports = [];
+  personalReports = [];
+  managementReports = [];
   users = [];
   budgets = [];
   activeReportId = "";
   if (me && canManage()) await loadData(false);
 });
 on("view-changed", ({ view }) => {
-  if (view === "admin") renderAll();
+  if (view === "admin") {
+    renderAll();
+    loadData(false);
+  }
 });
 window.refreshAdmin = loadData;

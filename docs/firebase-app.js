@@ -1,5 +1,5 @@
 import { formatReportDate } from "./report-dates.js";
-import {requirePasswordChange} from './account-security.js';
+import { requirePasswordChange } from "./account-security.js";
 import { showManagementPage } from "./management-pages.js";
 import { waitForUserProfile } from "./user-registration.js";
 import { auth, db } from "./firebase-client.js";
@@ -197,44 +197,19 @@ function showProfile() {
 async function loadReports() {
   if (!user) return;
   try {
-    let qry;
-    if (isAdmin()) qry = collection(db, "expenseReports");
-    else if (isManager())
-      qry = query(
-        collection(db, "expenseReports"),
-        where("status", "in", [
-          "Submitted",
-          "Manager Approved",
-          "Rejected",
-          "Revision Requested",
-          "Finance Processing",
-          "Reimbursement Processing",
-          "Reimbursed",
-          "Closed",
-        ]),
-      );
-    else if (profile.role === "finance")
-      qry = query(
-        collection(db, "expenseReports"),
-        where("status", "in", [
-          "Manager Approved",
-          "Finance Processing",
-          "Reimbursement Processing",
-          "Reimbursed",
-          "Closed",
-        ]),
-      );
-    else
-      qry = query(
-        collection(db, "expenseReports"),
-        where("userId", "==", user.uid),
-      );
+    // Personal workspace always uses ownership, regardless of management role.
+    const qry = query(
+      collection(db, "expenseReports"),
+      where("userId", "==", user.uid),
+    );
     const version = sessionVersion,
       request = ++reportLoadVersion;
     const snap = await getDocs(qry);
     if (version !== sessionVersion || request !== reportLoadVersion)
       return reports;
-    reports = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+    reports = snap.docs
+      .map((d) => ({ ...d.data(), id: d.id }))
+      .filter((report) => report.userId === user.uid);
     dash();
     emit("reports-loaded", { reports, user, profile });
     return reports;
@@ -301,7 +276,8 @@ window.showView = (view) => {
     view = "admin";
   }
   if (view === "admin" && !canSeeAdmin()) view = "dashboard";
-  if (!["dashboard", "editor", "admin", "monthly-invoices"].includes(view)) view = "dashboard";
+  if (!["dashboard", "editor", "admin", "monthly-invoices"].includes(view))
+    view = "dashboard";
   ["dashboard", "editor", "admin", "monthly-invoices"].forEach((id) => {
     q(id).classList.toggle("hide", id !== view);
     q("tab-" + id).classList.toggle("active", id === view);
@@ -701,12 +677,9 @@ function dash() {
     (sum, r) => sum + (r.items || []).filter((i) => i.receiptData).length,
     0,
   );
-  q("reportTitle").textContent = isAdmin()
-    ? "Current Reports"
-    : isManager()
-      ? "Submitted Reports"
-      : "My Active Reports";
-  q("reportSubtitle").textContent = "10 per page · Sorted by report number.";
+  q("reportTitle").textContent = "My Active Reports";
+  q("reportSubtitle").textContent =
+    "Your reports only · 10 per page · Sorted by report number.";
   renderDashboardReports(q("reportList"), reports);
 }
 let assigningNumbers = false;

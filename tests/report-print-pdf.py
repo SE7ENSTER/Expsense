@@ -6,7 +6,7 @@ import fitz
 out=Path(os.environ.get('PRINT_QA_DIR','.test-output/receipt-print')).resolve();out.mkdir(parents=True,exist_ok=True)
 for i,(w,h) in enumerate([(700,2400),(2200,700),(1000,1500),(600,3000),(1600,1200)],1):
     image=Image.new('RGB',(w,h),'white');draw=ImageDraw.Draw(image)
-    font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',max(22,w//28))
+    font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',max(22,min(40,w//28)))
     draw.rectangle((8,8,w-9,h-9),outline='black',width=7)
     draw.text((25,25),f'RECEIPT {i} - TOP',fill='black',font=font)
     for n in range(1,9):draw.text((25,70+n*max(30,(h-200)//10)),f'Item {n}    125.00',fill='black',font=font)

@@ -11,8 +11,8 @@ const pages = {
     "Manage annual budgets and track available balances.",
   ],
   review: [
-    "Manager & Finance Review",
-    "Review, approve and process reimbursements in one place.",
+    "Expense Review",
+    "Review other employees’ reports according to your role. Your own reports stay in My Expenses.",
   ],
   reports: ["All Reports", "Search the reports available to your role."],
   invoices: [

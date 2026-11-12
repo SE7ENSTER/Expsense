@@ -222,7 +222,7 @@ test("management no longer writes dashboard HTML or allocates numbers during rea
     management,
     /function renderDashboard\(|assignReportNumbers|setInterval\([^\n]*renderAll/,
   );
-  assert.match(management, /await window\.refreshDashboardReports\?\.\(\)/);
+  assert.match(management, /window\.refreshDashboardReports\?\.\(\)/);
   const core = fs.readFileSync("docs/firebase-app.js", "utf8");
   assert.doesNotMatch(core, /sort\(\(a,b\)=>\(b.updatedAt/);
 });
