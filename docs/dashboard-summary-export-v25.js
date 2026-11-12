@@ -114,7 +114,7 @@ async function exportSummaryPdf() {
   let y = 14;
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(18);
-  pdf.text("Expensio | Expense Report Summary", 14, y);
+  pdf.text("EXPENSiO | Expense Report Summary", 14, y);
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "normal");
   pdf.text(`Fiscal Year: ${fy}`, 14, y + 8);
@@ -175,7 +175,7 @@ async function exportSummaryPdf() {
     pdf.text(String(r["Next Step"]).slice(0, 34), xs[6], y);
     y += 7;
   });
-  pdf.save(`Expensio-Summary-${fy}.pdf`);
+  pdf.save(`EXPENSiO-Summary-${fy}.pdf`);
 }
 async function exportSummaryExcel() {
   const rows = await ensureData();
@@ -185,7 +185,7 @@ async function exportSummaryExcel() {
   if (window.XLSX) {
     const wb = window.XLSX.utils.book_new();
     const summaryRows = [
-      ["Expensio | Expense Report Summary"],
+      ["EXPENSiO | Expense Report Summary"],
       ["Fiscal Year", fy],
       ["Generated For", me?.email || ""],
       [],
@@ -202,7 +202,7 @@ async function exportSummaryExcel() {
     const ws2 = window.XLSX.utils.json_to_sheet(rows);
     window.XLSX.utils.book_append_sheet(wb, ws1, "Summary");
     window.XLSX.utils.book_append_sheet(wb, ws2, "Reports");
-    window.XLSX.writeFile(wb, `Expensio-Summary-${fy}.xlsx`);
+    window.XLSX.writeFile(wb, `EXPENSiO-Summary-${fy}.xlsx`);
     return;
   }
   const headers = Object.keys(rows[0]);
@@ -219,7 +219,7 @@ async function exportSummaryExcel() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Expensio-Summary-${fy}.csv`;
+  a.download = `EXPENSiO-Summary-${fy}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

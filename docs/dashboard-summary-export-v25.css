@@ -10,11 +10,11 @@
   font-size: 10px;
   font-weight: 500;
   background: #fff;
-  color: #687d9b;
-  border: 1px solid #dfe6ef;
+  color: #72917b;
+  border: 1px solid #e2ece5;
 }
 .summary-export-actions button:hover {
-  background: #f5f8fc;
+  background: #f6fbf8;
 }
 .summary-export-actions .export-excel {
   color: #458d75;

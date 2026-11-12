@@ -34,8 +34,8 @@
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: #8592a5;
-  background: #fafbfd;
+  color: #8b9f91;
+  background: #fbfcfb;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
@@ -56,12 +56,12 @@
 .compact-report-table td {
   height: 46px;
   padding: 10px 16px;
-  border-bottom: 1px solid #edf1f6;
+  border-bottom: 1px solid #eff4f0;
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #56667f;
+  color: #5e7765;
 }
 .compact-report-table tbody tr:last-child td {
   border-bottom: 0;
@@ -70,19 +70,19 @@
   cursor: pointer;
 }
 .compact-report-table tbody tr:hover {
-  background: #f7faff;
+  background: #f9fdfa;
 }
 .compact-report-table .cell-purpose,
 .compact-report-table .history-purpose {
   font-weight: 500;
-  color: #34435a;
+  color: #3b5342;
 }
 .compact-report-table .cell-total,
 .compact-report-table .history-total {
   font-weight: 600;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: #34435a;
+  color: #3b5342;
 }
 .compact-report-table td:last-child {
   text-align: right;
@@ -106,7 +106,7 @@
   border: 0;
   border-radius: 3px;
   background: transparent;
-  color: #5c7eb6;
+  color: #6da57d;
   font: inherit;
   font-size: 11px;
   font-weight: 500;
