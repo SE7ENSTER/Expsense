@@ -184,13 +184,79 @@ test("Signed viewer includes bank details, declaration, signature and print cont
   assert.equal(r.document.querySelector(".invoice-viewer"), null);
   assert.equal(r.document.getElementById("monthly-invoices").textContent, "");
 });
-test("Only Admin and Finance have the all-submissions scope", async () => {
+test("Only Finance/Admin can open Monthly Invoices in Management; personal page stays own-only", async () => {
   for (const role of ["user", "manager", "admin", "finance"]) {
-    const r = await runtime(role);
+    const r = await runtime(role),
+      allowed = ["admin", "finance"].includes(role);
+    assert.equal(r.document.getElementById("invoice-scope"), null);
+    r.window.showView("admin-invoices");
+    await r.settle();
     assert.equal(
-      !!r.document.getElementById("invoice-scope"),
-      ["admin", "finance"].includes(role),
+      r.document.getElementById("management-invoices").hidden,
+      !allowed,
+    );
+    assert.equal(
+      r.document
+        .querySelector('[data-management-page="invoices"]')
+        .classList.contains("hide"),
+      !allowed,
     );
     assert.deepEqual(r.errors, []);
   }
+});
+test("Finance review filters submitted invoices by month and keeps personal invoices separate", async () => {
+  const r = await runtime("finance"),
+    m = await model();
+  for (let i = 0; i < 12; i++) {
+    const data = m.blankInvoice(
+      { uid: "owner" + i, email: "owner" + i + "@example.test" },
+      { firstName: "Owner", lastName: String(i) },
+      i === 11 ? "2026-10" : "2026-11",
+      "2026-11-12",
+    );
+    data.status = "Submitted";
+    data.totalMinor = 5000;
+    data.signature = "data:image/png;base64,iVBORw0KGgo=";
+    data.signatureName = "Owner " + i;
+    data.submittedAt = { seconds: 1794470400 };
+    r.data.set(
+      "monthlyInvoices/owner" + i + "_" + data.serviceMonth,
+      structuredClone(data),
+    );
+  }
+  const draft = m.blankInvoice(
+    { uid: "private", email: "private@example.test" },
+    { firstName: "Private" },
+    "2026-11",
+    "2026-11-12",
+  );
+  r.data.set("monthlyInvoices/private_2026-11", structuredClone(draft));
+  r.window.showView("admin-invoices");
+  await r.settle();
+  const host = r.document.getElementById("management-invoice-records");
+  assert.equal(host.querySelectorAll("[data-invoice-row]").length, 10);
+  assert.doesNotMatch(host.textContent, /Private/);
+  host.querySelector("[data-invoice-next]").click();
+  assert.equal(host.querySelectorAll("[data-invoice-row]").length, 2);
+  const month = r.document.getElementById("management-invoice-month");
+  month.value = "2026-10";
+  month.onchange();
+  assert.equal(host.querySelectorAll("[data-invoice-row]").length, 1);
+  host.querySelector("[data-invoice-row]").click();
+  assert.ok(r.document.querySelector(".invoice-signed-image"));
+  r.document.querySelector("[data-invoice-close]").click();
+  r.window.showView("monthly-invoices");
+  await r.settle();
+  assert.doesNotMatch(
+    r.document.getElementById("invoice-records").textContent,
+    /Owner/,
+  );
+  r.window.showView("admin-invoices");
+  await r.settle();
+  assert.equal(month.value, "2026-10");
+  await r.logout();
+  assert.equal(
+    r.document.getElementById("management-invoice-content").textContent,
+    "",
+  );
 });

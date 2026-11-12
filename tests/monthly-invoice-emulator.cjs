@@ -138,17 +138,16 @@ async function waitFor(check) {
       "PASS signature, server timestamps and exact total persist atomically",
     );
     const finance = await actor("finance", "finance");
-    const scope = finance.r.document.getElementById("invoice-scope");
-    scope.value = "submitted";
-    scope.dispatchEvent(
-      new finance.r.window.Event("change", { bubbles: true }),
-    );
+    assert.equal(finance.r.document.getElementById("invoice-scope"), null);
+    finance.r.window.showView("admin-invoices");
     await waitFor(() =>
       finance.r.document
-        .getElementById("invoice-records")
+        .getElementById("management-invoice-records")
         .textContent.includes("Test Person"),
     );
-    finance.r.document.querySelector("[data-invoice-row]").click();
+    finance.r.document
+      .querySelector("#management-invoice-records [data-invoice-row]")
+      .click();
     assert.ok(finance.r.document.querySelector(".invoice-signed-image"));
     assert.match(
       finance.r.document.querySelector(".invoice-viewer").textContent,

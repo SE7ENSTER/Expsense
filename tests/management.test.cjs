@@ -34,11 +34,18 @@ async function actor(role = "admin") {
   await r.login();
   return r;
 }
-test("Management has four separate pages, retains user inputs and omits create/reminder", async () => {
+test("Management separates its pages, retains user inputs and omits create/reminder", async () => {
   const r = await actor(),
     input = r.document.getElementById("adminNewEmail");
   input.value = "retained@example.test";
-  for (const page of ["users", "budget", "review", "reports", "users"]) {
+  for (const page of [
+    "users",
+    "budget",
+    "review",
+    "reports",
+    "invoices",
+    "users",
+  ]) {
     r.window.showView("admin-" + page);
     await r.settle();
     assert.deepEqual(

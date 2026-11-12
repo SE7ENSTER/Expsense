@@ -26,10 +26,16 @@ This is a monthly submission and Finance viewing flow; no additional approval st
 
 ## Verification
 
-106 application tests pass, including eight new monthly-invoice tests. 36 invoice Rules scenarios and four actual-production-module/real-Firestore scenarios pass. Tests include full ten-line submission (including a password-ready session and attachment), no signature/consent, stale revision, exact total, private bank data, immutable submission, required receipts in UI and Finance viewing. The existing 69 Rules checks and 15 expense workflow scenarios also pass. All test data/accounts are synthetic; no live database records were created.
+107 application tests pass, including nine monthly-invoice tests. 39 invoice Rules scenarios and four actual-production-module/real-Firestore scenarios pass. Tests include full ten-line submission (including a password-ready session and attachment), no signature/consent, stale revision, exact total, private bank data, immutable submission, required receipts in UI and Finance viewing. The existing 69 Rules checks and 15 expense workflow scenarios also pass. All test data/accounts are synthetic; no live database records were created.
 
 ## Release
 
 Backup branch: backup/pre-monthly-invoice-20261112 at d9b6a31b6f89cb4a6568bd934ec35edfb63e784e. The deployment ZIP includes a standalone prior release backup, previous Rules, and the corrected Windows deployment script that checks extraction and enters functions directly before npm ci.
 
 No live deployment is claimed. The existing account-security Functions dependency still requires Blaze and an authorized deployment computer. Use the included DEPLOY-WEB.cmd after extracting the entire ZIP. The script deploys Rules before Hosting; do not publish only the UI, because monthlyInvoices needs the new Rules. Source/configuration backups are not a database/Auth export. Retain the account-security gate during any rollback after password resets.
+
+## Dedicated Management review page
+
+Management → Monthly Invoices is visible and routable only to Finance/Admin. The personal Monthly Invoice page always queries the current user's invoices and no longer offers an all-users selector. Management queries only Submitted invoices, displays the submission time, offers independent month filtering and ten-per-page controls, and opens the same signed read-only viewer. Manager/User navigation to admin-invoices falls back to an allowed page. Private review records and open viewers clear on sign-out. The unchanged Rules enforce the role restriction even when bypassing the UI; explicit query-denial tests were added.
+
+Backup for this UI change: backup/pre-invoice-management-20261112 at 59b39ccd862c2302189a5a48ac9814217671bb24. Previous standalone package and Rules are included in the ZIP. No live deployment was performed.

@@ -269,6 +269,12 @@ function invoice(status = "Draft") {
         invoice("Submitted"),
       );
     }
+    for (const role of ['manager','other']) {
+      await check(role + ' cannot query submitted invoices belonging to others', false,
+        () => getDocs(query(collection(actors[role], 'monthlyInvoices'), where('status','==','Submitted'))), invoice('Submitted'));
+    }
+    await check('Admin cannot query all monthly drafts without a submission constraint', false,
+      () => getDocs(collection(actors.admin, 'monthlyInvoices')), invoice());
     await check(
       "Owner query constrained to own invoices succeeds",
       true,

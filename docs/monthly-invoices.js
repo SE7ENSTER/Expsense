@@ -27,7 +27,8 @@ import {
 import { signaturePad } from "./invoice-signature.js";
 import { formatReportDate } from "./report-dates.js";
 import { formatReportTimestamp } from "./report-timeline.js";
-const root = document.getElementById("monthly-invoices");
+const root = document.getElementById("monthly-invoices"),
+  reviewRoot = document.getElementById("management-invoice-content");
 let user = null,
   profile = {},
   epoch = 0,
@@ -39,7 +40,9 @@ let user = null,
   busy = false,
   attachment = null,
   records = [],
-  scope = "mine",
+  reviewRecords = [],
+  reviewPage = 0,
+  reviewLoadVersion = 0,
   page = 0;
 const today = () =>
   new Intl.DateTimeFormat("en-CA", {
@@ -56,7 +59,7 @@ const message = (text) => {
   if (element) element.textContent = text;
 };
 function shell() {
-  root.innerHTML = `<div class="invoice-toolbar"><div><h2>Monthly Invoice</h2><p>Complete your monthly invoice, sign and submit to Finance.</p></div><label>Service month<input type="month" id="invoice-month" value="${today().slice(0, 7)}"></label><button type="button" id="invoice-open">Open month</button></div><p data-invoice-message role="status" aria-live="polite"></p><div id="invoice-editor"></div><section class="invoice-list"><div class="invoice-toolbar"><h3>Invoices</h3>${canReview() ? '<label>Show<select id="invoice-scope"><option value="mine">My invoices</option><option value="submitted">Submitted invoices · all users</option></select></label>' : ""}<label>Filter by service month<input type="month" id="invoice-list-month"></label><button type="button" id="invoice-refresh">Refresh</button></div><div id="invoice-records"></div></section>`;
+  root.innerHTML = `<div class="invoice-toolbar"><div><h2>Monthly Invoice</h2><p>Complete your monthly invoice, sign and submit to Finance.</p></div><label>Service month<input type="month" id="invoice-month" value="${today().slice(0, 7)}"></label><button type="button" id="invoice-open">Open month</button></div><p data-invoice-message role="status" aria-live="polite"></p><div id="invoice-editor"></div><section class="invoice-list"><div class="invoice-toolbar"><h3>My invoices</h3><label>Filter by service month<input type="month" id="invoice-list-month"></label><button type="button" id="invoice-refresh">Refresh</button></div><div id="invoice-records"></div></section>`;
   root.querySelector("#invoice-open").onclick = () =>
     openMonth(root.querySelector("#invoice-month").value);
   root.querySelector("#invoice-refresh").onclick = () => loadList();
@@ -64,12 +67,6 @@ function shell() {
     page = 0;
     renderList();
   };
-  if (canReview())
-    root.querySelector("#invoice-scope").onchange = (event) => {
-      scope = event.target.value;
-      page = 0;
-      loadList();
-    };
 }
 function renderEditor() {
   const host = root.querySelector("#invoice-editor");
@@ -250,7 +247,8 @@ async function openMonth(month, force = false) {
   }
 }
 async function saveInvoice(submit) {
-  if (!user || busy || loading || !current || current.status === "Submitted") return false;
+  if (!user || busy || loading || !current || current.status === "Submitted")
+    return false;
   let data;
   try {
     data = collect();
@@ -339,17 +337,13 @@ async function saveInvoice(submit) {
 }
 async function loadList() {
   if (!user) return;
-  const version = epoch,
-    requestedScope = scope;
+  const version = epoch;
   try {
-    const filters =
-      scope === "submitted" && canReview()
-        ? [where("status", "==", "Submitted")]
-        : [where("userId", "==", user.uid)];
+    const filters = [where("userId", "==", user.uid)];
     const result = await getDocs(
       query(collection(db, "monthlyInvoices"), ...filters),
     );
-    if (epoch !== version || scope !== requestedScope) return;
+    if (epoch !== version) return;
     records = result.docs
       .map((snapshot) => snapshot.data())
       .sort(
@@ -364,42 +358,96 @@ async function loadList() {
         "Cannot load invoices: " + error.message;
   }
 }
-function renderList() {
-  const month = root.querySelector("#invoice-list-month").value,
-    filtered = records.filter(
+function renderList(review = false) {
+  const area = review ? reviewRoot : root;
+  const month = area.querySelector(
+      review ? "#management-invoice-month" : "#invoice-list-month",
+    ).value,
+    filtered = (review ? reviewRecords : records).filter(
       (record) => !month || record.serviceMonth === month,
     );
-  page = Math.max(0, Math.min(page, Math.ceil(filtered.length / 10) - 1));
-  const shown = filtered.slice(page * 10, page * 10 + 10),
-    host = root.querySelector("#invoice-records");
+  const selectedPage = Math.max(
+    0,
+    Math.min(review ? reviewPage : page, Math.ceil(filtered.length / 10) - 1),
+  );
+  if (review) reviewPage = selectedPage;
+  else page = selectedPage;
+  const shown = filtered.slice(selectedPage * 10, selectedPage * 10 + 10),
+    host = area.querySelector(
+      review ? "#management-invoice-records" : "#invoice-records",
+    );
   host.innerHTML =
     shown
       .map(
         (r, i) =>
-          `<button type="button" class="invoice-list-row" data-invoice-row="${i}"><span>${esc(invoiceNumber(r))}<small>${esc(r.serviceMonth)} · ${esc(r.from.fullName)}</small></span><span>${esc(r.currency)} ${money(r.totalMinor)}</span><span>${esc(r.status)}</span><span>View</span></button>`,
+          `<button type="button" class="invoice-list-row" data-invoice-row="${i}"><span>${esc(invoiceNumber(r))}<small>${esc(r.serviceMonth)} · ${esc(r.from.fullName)}</small>${review ? `<small>Submitted ${esc(formatReportTimestamp(r.submittedAt))} (UTC+7)</small>` : ""}</span><span>${esc(r.currency)} ${money(r.totalMinor)}</span><span>${esc(r.status)}</span><span>View</span></button>`,
       )
       .join("") || "<p>No invoices for this selection.</p>";
   host.querySelectorAll("[data-invoice-row]").forEach(
     (button) =>
       (button.onclick = () => {
         const data = shown[Number(button.dataset.invoiceRow)];
-        if (data.userId === user.uid && data.status === "Draft")
+        if (!review && data.userId === user.uid && data.status === "Draft")
           return openMonth(data.serviceMonth);
         showInvoice(data);
       }),
   );
   const footer = document.createElement("div");
   footer.className = "invoice-toolbar";
-  footer.innerHTML = `<span>${filtered.length} invoice(s) · 10 per page</span><button type="button" data-invoice-prev ${page === 0 ? "disabled" : ""}>Previous</button><button type="button" data-invoice-next ${(page + 1) * 10 >= filtered.length ? "disabled" : ""}>More</button>`;
+  footer.innerHTML = `<span>${filtered.length} invoice(s) · 10 per page</span><button type="button" data-invoice-prev ${selectedPage === 0 ? "disabled" : ""}>Previous</button><button type="button" data-invoice-next ${(selectedPage + 1) * 10 >= filtered.length ? "disabled" : ""}>More</button>`;
   footer.querySelector("[data-invoice-prev]").onclick = () => {
-    page--;
-    renderList();
+    if (review) reviewPage--;
+    else page--;
+    renderList(review);
   };
   footer.querySelector("[data-invoice-next]").onclick = () => {
-    page++;
-    renderList();
+    if (review) reviewPage++;
+    else page++;
+    renderList(review);
   };
   host.appendChild(footer);
+}
+function reviewShell() {
+  if (!reviewRoot) return;
+  reviewRoot.innerHTML =
+    user && canReview()
+      ? `<div class="invoice-toolbar"><label>Filter by service month<input type="month" id="management-invoice-month"></label><button type="button" id="management-invoice-refresh">Refresh invoices</button></div><p class="muted">Submitted invoices only. Open an invoice to view its signature, bank details and supporting document, or print / save PDF.</p><div id="management-invoice-records"></div>`
+      : "";
+  if (!user || !canReview()) return;
+  reviewRoot.querySelector("#management-invoice-month").onchange = () => {
+    reviewPage = 0;
+    renderList(true);
+  };
+  reviewRoot.querySelector("#management-invoice-refresh").onclick = () =>
+    loadReviewInvoices();
+}
+async function loadReviewInvoices() {
+  if (!user || !canReview() || !reviewRoot) return;
+  const version = epoch,
+    request = ++reviewLoadVersion;
+  const host = reviewRoot.querySelector("#management-invoice-records");
+  host.textContent = "Loading submitted invoices…";
+  try {
+    const result = await getDocs(
+      query(
+        collection(db, "monthlyInvoices"),
+        where("status", "==", "Submitted"),
+      ),
+    );
+    if (epoch !== version || request !== reviewLoadVersion || !canReview())
+      return;
+    reviewRecords = result.docs
+      .map((snapshot) => snapshot.data())
+      .sort(
+        (a, b) =>
+          b.serviceMonth.localeCompare(a.serviceMonth) ||
+          a.userId.localeCompare(b.userId),
+      );
+    renderList(true);
+  } catch (error) {
+    if (epoch === version && request === reviewLoadVersion)
+      host.textContent = "Cannot load invoices: " + error.message;
+  }
 }
 function showInvoice(data) {
   document.querySelector(".invoice-viewer")?.remove();
@@ -472,13 +520,17 @@ on("session", (data) => {
   loading = false;
   attachment = null;
   pad = null;
-  scope = "mine";
+  reviewRecords = [];
+  reviewPage = 0;
+  reviewLoadVersion++;
   page = 0;
   document.querySelector(".invoice-viewer")?.remove();
   root.innerHTML = "";
+  reviewShell();
   if (user) shell();
 });
-on("view-changed", ({ view }) => {
+on("view-changed", ({ view, managementPage }) => {
+  if (view === "admin" && managementPage === "invoices") loadReviewInvoices();
   if (view === "monthly-invoices" && user) {
     if (!current) openMonth(root.querySelector("#invoice-month").value);
     loadList();

@@ -15,10 +15,19 @@ const pages = {
     "Review, approve and process reimbursements in one place.",
   ],
   reports: ["All Reports", "Search the reports available to your role."],
+  invoices: [
+    "Monthly Invoices",
+    "View signed monthly invoices submitted to Finance. Finance and Admin only.",
+  ],
 };
 export function showManagementPage(page = selectedPage) {
   const allowed = ["admin", "manager", "finance"].includes(role);
-  if (!pages[page] || (page === "users" && role !== "admin")) page = "review";
+  if (
+    !pages[page] ||
+    (page === "users" && role !== "admin") ||
+    (page === "invoices" && !["admin", "finance"].includes(role))
+  )
+    page = "review";
   selectedPage = page;
   document.querySelectorAll(".management-page").forEach((section) => {
     const active = allowed && section.id === "management-" + page;
@@ -29,7 +38,9 @@ export function showManagementPage(page = selectedPage) {
     button.classList.toggle(
       "hide",
       !allowed ||
-        (button.dataset.managementPage === "users" && role !== "admin"),
+        (button.dataset.managementPage === "users" && role !== "admin") ||
+        (button.dataset.managementPage === "invoices" &&
+          !["admin", "finance"].includes(role)),
     );
     const active = allowed && button.dataset.managementPage === page;
     button.classList.toggle("active", active);
